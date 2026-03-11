@@ -80,6 +80,116 @@ const health = await cube.health()
 // { status: 'healthy', checks: { app: true, database: true, cache: true }, timestamp: '...' }
 ```
 
+## Webhooks
+
+Receive real-time notifications from CubeConnect for messages, campaigns, templates, chatbot flows, and quality events.
+
+### Verifying Webhook Signatures
+
+```typescript
+import { verifyWebhookSignature } from '@cubesoftware/cube-connect-sdk-js'
+
+app.post('/cubeconnect/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  const isValid = verifyWebhookSignature({
+    payload: req.body.toString(),
+    signature: req.headers['x-webhook-signature'] as string,
+    timestamp: req.headers['x-webhook-timestamp'] as string,
+    secret: process.env.CUBECONNECT_WEBHOOK_SECRET!,
+  })
+
+  if (!isValid) {
+    return res.status(401).send('Invalid signature')
+  }
+
+  // Process webhook...
+  res.sendStatus(200)
+})
+```
+
+### Handling Webhook Events
+
+Use the `WebhookEvent` class for clean event handling:
+
+```typescript
+import { WebhookEvent, verifyWebhookSignature } from '@cubesoftware/cube-connect-sdk-js'
+
+app.post('/cubeconnect/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  const body = req.body.toString()
+
+  const isValid = verifyWebhookSignature({
+    payload: body,
+    signature: req.headers['x-webhook-signature'] as string,
+    timestamp: req.headers['x-webhook-timestamp'] as string,
+    secret: process.env.CUBECONNECT_WEBHOOK_SECRET!,
+  })
+
+  if (!isValid) return res.status(401).send('Invalid signature')
+
+  const event = new WebhookEvent(JSON.parse(body))
+
+  if (event.isMessageReceived()) {
+    console.log(`New message from ${event.get('from')}: ${event.get('content')}`)
+  }
+
+  if (event.isMessageStatusUpdated()) {
+    console.log(`Message ${event.get('message_id')} is now ${event.get('status')}`)
+  }
+
+  if (event.isCampaignCompleted()) {
+    console.log(`Campaign "${event.get('name')}": ${event.get('sent_count')} sent, ${event.get('failed_count')} failed`)
+  }
+
+  if (event.isTemplateStatusChanged()) {
+    console.log(`Template "${event.get('template_name')}" is now ${event.get('status')}`)
+  }
+
+  if (event.isFlowSessionCompleted()) {
+    console.log(`Flow completed for ${event.get('customer_phone')}`)
+  }
+
+  if (event.isQualityEvent()) {
+    console.warn(`Quality ${event.get('type')} from ${event.get('user_phone')}`)
+  }
+
+  res.sendStatus(200)
+})
+```
+
+### Supported Events
+
+| Event | Method | Description |
+|-------|--------|-------------|
+| `message.status_updated` | `isMessageStatusUpdated()` | Message status change (sent, delivered, read, failed) |
+| `message.received` | `isMessageReceived()` | Incoming message from a customer |
+| `campaign.created` | `isCampaignCreated()` | New campaign created |
+| `campaign.started` | `isCampaignStarted()` | Campaign execution started |
+| `campaign.completed` | `isCampaignCompleted()` | Campaign finished |
+| `template.submitted` | `isTemplateSubmitted()` | Template submitted to Meta |
+| `template.status_changed` | `isTemplateStatusChanged()` | Template approved, rejected, or paused |
+| `flow.session_started` | `isFlowSessionStarted()` | Chatbot flow session started |
+| `flow.session_completed` | `isFlowSessionCompleted()` | Chatbot flow session completed |
+| `flow.session_cancelled` | `isFlowSessionCancelled()` | Session cancelled by customer |
+| `account.quality_event` | `isQualityEvent()` | Quality event (block or report) |
+| `webhook.test` | `isTest()` | Connection test ping |
+
+### WebhookEvent Helpers
+
+```typescript
+event.event      // "message.received"
+event.tenantId   // 1
+event.timestamp  // "2026-03-10T14:30:00+03:00"
+event.category() // "message"
+event.is('message.received') // true
+event.isTest()   // false
+event.toObject() // Full payload object
+```
+
+### TypeScript Types
+
+```typescript
+import type { WebhookEventType, WebhookPayload, VerifyOptions } from '@cubesoftware/cube-connect-sdk-js'
+```
+
 ## Configuration Options
 
 ```typescript

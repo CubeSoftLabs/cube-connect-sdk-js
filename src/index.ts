@@ -1,5 +1,6 @@
 export { CubeConnect } from './client.js'
 export { MessageResponse } from './message-response.js'
+export { verifyWebhookSignature, WebhookEvent } from './webhook.js'
 export {
   CubeConnectError,
   AuthenticationError,
@@ -14,3 +15,8 @@ export type {
   TemplateComponent,
   TemplateParameter,
 } from './types.js'
+export type {
+  WebhookEventType,
+  WebhookPayload,
+  VerifyOptions,
+} from './webhook.js'
