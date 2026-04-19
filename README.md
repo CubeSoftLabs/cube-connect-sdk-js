@@ -73,6 +73,84 @@ Parameters map to `{{1}}`, `{{2}}`, etc. in the template body. The SDK automatic
 const response = await cube.sendTemplate('+966501234567', 'welcome_message')
 ```
 
+### Scheduled Message
+
+Pass a `scheduledAt` (ISO 8601) and `timezone` (IANA) to schedule a message for future delivery:
+
+```typescript
+const response = await cube.sendText(
+  '+966501234567',
+  'Your appointment is tomorrow at 10:00 AM.',
+  {
+    scheduledAt: '2026-05-01T10:00:00',
+    timezone: 'Asia/Riyadh',
+  },
+)
+
+response.status        // "scheduled"
+response.messageLogId  // 4521
+response.scheduledAt   // "2026-05-01T07:00:00Z" (UTC)
+```
+
+Templates can also be scheduled:
+
+```typescript
+const response = await cube.sendTemplate(
+  '+966501234567',
+  'appointment_reminder',
+  ['Dr. Ahmed', '10:00 AM'],
+  'ar',
+  {
+    scheduledAt: '2026-05-01T09:00:00',
+    timezone: 'Asia/Riyadh',
+  },
+)
+```
+
+### Bulk Campaigns
+
+Send a message to a large list of recipients in a single API call:
+
+```typescript
+const campaign = await cube.createCampaign({
+  whatsappAccountId: 'YOUR_ACCOUNT_ID',   // Dashboard → WhatsApp Numbers → copy icon next to "API ID:"
+  messageType: 'text',
+  body: 'Your exclusive offer expires tomorrow!',
+  recipients: [
+    { phone: '+966501234567', name: 'Ahmed' },
+    { phone: '+966509876543', name: 'Sara' },
+  ],
+  campaignName: 'Offer Reminder',
+  scheduledAt: '2026-05-01T09:00:00',     // optional
+  timezone: 'Asia/Riyadh',               // required when scheduledAt is set
+})
+
+campaign.campaignId  // "01JX..."
+campaign.status      // "pending"
+campaign.totalCount  // 2
+campaign.isScheduled()  // true
+```
+
+#### Get Campaign Status
+
+```typescript
+const campaign = await cube.getCampaign(campaignId)
+
+campaign.status       // "processing", "completed", "cancelled", "failed"
+campaign.totalCount   // 500
+campaign.sentCount    // 320
+campaign.failedCount  // 12
+campaign.scheduledAt  // "2026-05-01T06:00:00Z"
+campaign.isCompleted() // true
+```
+
+#### Cancel a Scheduled Campaign
+
+```typescript
+const result = await cube.cancelCampaign(campaignId)
+result.success  // true
+```
+
 ### Health Check
 
 ```typescript
@@ -208,20 +286,47 @@ const cube = new CubeConnect({
 | `tenantId` | `string` | `undefined` | Tenant ID (multi-tenant only) |
 | `timeout` | `number` | `30000` | Request timeout in milliseconds |
 
-## Response Object
+## Response Objects
 
-All message methods return a `MessageResponse` with the following properties:
+### MessageResponse
+
+Returned by `sendText()` and `sendTemplate()`:
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `status` | `string` | `queued` on success |
+| `status` | `string` | `queued` for immediate delivery, `scheduled` for future delivery |
 | `messageLogId` | `number` | Unique tracking ID |
 | `conversationCategory` | `string` | `SERVICE`, `MARKETING`, `UTILITY`, or `AUTHENTICATION` |
 | `cost` | `number` | Message cost |
+| `scheduledAt` | `string \| null` | UTC datetime if scheduled, otherwise `null` |
 
 ```typescript
-response.queued()   // true if status is "queued"
-response.toArray()  // Plain object representation
+response.queued()      // true if status is "queued"
+response.scheduled()   // true if status is "scheduled"
+response.toArray()     // Plain object representation
+```
+
+### CampaignResponse
+
+Returned by `createCampaign()` and `getCampaign()`:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `campaignId` | `string` | Unique campaign ULID |
+| `name` | `string \| null` | Campaign name |
+| `status` | `string` | `pending`, `processing`, `completed`, `cancelled`, `failed` |
+| `messageType` | `string` | `text` or `template` |
+| `totalCount` | `number` | Total recipients |
+| `sentCount` | `number` | Successfully sent |
+| `failedCount` | `number` | Failed deliveries |
+| `scheduledAt` | `string \| null` | Scheduled UTC datetime |
+| `createdAt` | `string` | Creation timestamp |
+
+```typescript
+campaign.isScheduled()  // true if pending with a scheduledAt
+campaign.isCompleted()  // true if status is "completed"
+campaign.isCancelled()  // true if status is "cancelled"
+campaign.toObject()     // Plain object representation
 ```
 
 ## Error Handling
@@ -276,7 +381,17 @@ All errors extend `CubeConnectError`, so you can catch the base class for generi
 Full type definitions are included. Import types directly:
 
 ```typescript
-import type { CubeConnectOptions, HealthResponse, MessageResponseData } from '@cubesoftware/cube-connect-sdk-js'
+import type {
+  CubeConnectOptions,
+  HealthResponse,
+  MessageResponseData,
+  SendOptions,
+  CreateCampaignPayload,
+  CampaignRecipient,
+  CampaignResponseData,
+} from '@cubesoftware/cube-connect-sdk-js'
+
+import { CampaignResponse } from '@cubesoftware/cube-connect-sdk-js'
 ```
 
 ## Requirements
