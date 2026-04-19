@@ -2,10 +2,13 @@ import type {
   CubeConnectOptions,
   HealthResponse,
   SendPayload,
+  SendOptions,
+  CreateCampaignPayload,
   TemplateComponent,
   ApiErrorResponse,
 } from './types.js'
 import { MessageResponse } from './message-response.js'
+import { CampaignResponse } from './campaign-response.js'
 import {
   CubeConnectError,
   AuthenticationError,
@@ -39,26 +42,35 @@ export class CubeConnect {
   }
 
   /**
-   * إرسال رسالة نصية إلى رقم واتساب
-   * يجب أن يكون المستلم قد راسلك خلال آخر 24 ساعة
+   * إرسال رسالة نصية إلى رقم واتساب.
+   * يجب أن يكون المستلم قد راسلك خلال آخر 24 ساعة.
+   * يمكن تحديد scheduledAt لإرسالها في وقت لاحق.
    */
-  async sendText(phone: string, body: string): Promise<MessageResponse> {
-    return this.send({
+  async sendText(phone: string, body: string, options?: SendOptions): Promise<MessageResponse> {
+    const payload: SendPayload & { scheduled_at?: string } = {
       phone,
       message_type: 'text',
       data: { text: body },
-    })
+    }
+
+    if (options?.scheduledAt) {
+      payload.scheduled_at = options.scheduledAt
+    }
+
+    return this.send(payload)
   }
 
   /**
-   * إرسال قالب رسالة معتمد مسبقاً
-   * يمكن الإرسال في أي وقت بغض النظر عن نافذة 24 ساعة
+   * إرسال قالب رسالة معتمد مسبقاً.
+   * يمكن الإرسال في أي وقت بغض النظر عن نافذة 24 ساعة.
+   * يمكن تحديد scheduledAt لإرسالها في وقت لاحق.
    */
   async sendTemplate(
     phone: string,
     name: string,
     params: string[] = [],
     languageCode: string = 'en_US',
+    options?: SendOptions,
   ): Promise<MessageResponse> {
     const data: Record<string, unknown> = {
       name,
@@ -78,16 +90,114 @@ export class CubeConnect {
       data.components = components
     }
 
-    return this.send({
+    const payload: SendPayload & { scheduled_at?: string } = {
       phone,
       message_type: 'template',
       data,
-    })
+    }
+
+    if (options?.scheduledAt) {
+      payload.scheduled_at = options.scheduledAt
+    }
+
+    return this.send(payload)
   }
 
   /**
-   * فحص حالة المنصة
-   * لا يتطلب مصادقة
+   * إنشاء حملة جماعية (مع دعم الجدولة الاختيارية).
+   * يُعيد CampaignResponse يحتوي على campaign_id والحالة الأولية.
+   */
+  async createCampaign(payload: CreateCampaignPayload): Promise<CampaignResponse> {
+    const body = {
+      whatsapp_account_id: payload.whatsappAccountId,
+      message_type:        payload.messageType,
+      body:                payload.body,
+      template_id:         payload.templateId,
+      template_params:     payload.templateParams,
+      recipients:          payload.recipients,
+      campaign_name:       payload.campaignName,
+      scheduled_at:        payload.scheduledAt,
+    }
+
+    let response: Response
+
+    try {
+      response = await this.fetchWithTimeout(
+        `${this.baseUrl}/api/v1/campaigns`,
+        {
+          method: 'POST',
+          headers: this.buildHeaders(),
+          body: JSON.stringify(body),
+        },
+      )
+    } catch (error) {
+      throw CubeConnectError.connectionFailed(
+        error instanceof Error ? error : undefined,
+      )
+    }
+
+    await this.handleErrors(response)
+
+    const json = await response.json()
+    return CampaignResponse.fromResponse(json.data as Record<string, unknown>)
+  }
+
+  /**
+   * جلب حالة حملة جماعية بمعرّفها.
+   */
+  async getCampaign(campaignId: string): Promise<CampaignResponse> {
+    let response: Response
+
+    try {
+      response = await this.fetchWithTimeout(
+        `${this.baseUrl}/api/v1/campaigns/${encodeURIComponent(campaignId)}`,
+        {
+          method: 'GET',
+          headers: this.buildHeaders(),
+        },
+      )
+    } catch (error) {
+      throw CubeConnectError.connectionFailed(
+        error instanceof Error ? error : undefined,
+      )
+    }
+
+    await this.handleErrors(response)
+
+    const json = await response.json()
+    return CampaignResponse.fromResponse(json.data as Record<string, unknown>)
+  }
+
+  /**
+   * إلغاء حملة مجدولة لم تبدأ بعد.
+   */
+  async cancelCampaign(campaignId: string): Promise<{ success: boolean }> {
+    let response: Response
+
+    try {
+      response = await this.fetchWithTimeout(
+        `${this.baseUrl}/api/v1/campaigns/${encodeURIComponent(campaignId)}/cancel`,
+        {
+          method: 'POST',
+          headers: this.buildHeaders(),
+          body: JSON.stringify({}),
+        },
+      )
+    } catch (error) {
+      throw CubeConnectError.connectionFailed(
+        error instanceof Error ? error : undefined,
+      )
+    }
+
+    await this.handleErrors(response)
+
+    const json = await response.json()
+    return { success: (json.data as Record<string, unknown>)?.['success'] === true }
+  }
+
+  /**
+   * فحص حالة المنصة.
+   * لا يتطلب مصادقة.
    */
   async health(): Promise<HealthResponse> {
     let response: Response
@@ -119,7 +229,7 @@ export class CubeConnect {
 
   // ── Private ──────────────────────────────────────────────
 
-  private async send(payload: SendPayload): Promise<MessageResponse> {
+  private async send(payload: SendPayload & { scheduled_at?: string }): Promise<MessageResponse> {
     let response: Response
 
     try {

@@ -56,3 +56,57 @@ export interface ApiErrorResponse {
     details?: Record<string, string[]>
   }
 }
+
+/** خيارات إرسال الرسائل (اختيارية) */
+export interface SendOptions {
+  /** وقت الإرسال المجدول — ISO 8601 (مثال: "2026-05-01T10:00:00Z") */
+  scheduledAt?: string
+}
+
+/** مستلم واحد في حملة جماعية */
+export interface CampaignRecipient {
+  /** رقم الهاتف بالتنسيق الدولي */
+  phone: string
+  /** اسم المستلم (اختياري) */
+  name?: string
+  /** متغيرات مخصصة لهذا المستلم (اختياري) */
+  variables?: Record<string, string>
+}
+
+/** حمولة إنشاء حملة جماعية */
+export interface CreateCampaignPayload {
+  /** معرّف حساب واتساب المُرسِل */
+  whatsappAccountId: string
+  /** نوع الرسالة */
+  messageType: 'text' | 'template'
+  /** نص الرسالة (للرسائل النصية) */
+  body?: string
+  /** معرّف القالب (للقوالب) */
+  templateId?: string
+  /** معاملات القالب */
+  templateParams?: string[]
+  /** قائمة المستلمين */
+  recipients: CampaignRecipient[]
+  /** اسم الحملة (اختياري) */
+  campaignName?: string
+  /** وقت الإرسال المجدول — ISO 8601 (اختياري) */
+  scheduledAt?: string
+}
+
+/** بيانات استجابة الحملة من API */
+export interface CampaignResponseData {
+  campaignId: string
+  name: string | null
+  status: 'pending' | 'processing' | 'completed' | 'cancelled' | 'failed' | 'scheduled'
+  messageType: string
+  totalCount: number
+  sentCount: number
+  failedCount: number
+  scheduledAt: string | null
+  createdAt: string
+}
+
+/** حمولة إرسال الرسالة الداخلية مع دعم الجدولة */
+export interface ScheduledSendPayload extends SendPayload {
+  scheduled_at?: string
+}
