@@ -47,7 +47,7 @@ export class CubeConnect {
    * يمكن تحديد scheduledAt لإرسالها في وقت لاحق.
    */
   async sendText(phone: string, body: string, options?: SendOptions): Promise<MessageResponse> {
-    const payload: SendPayload & { scheduled_at?: string } = {
+    const payload: SendPayload & { scheduled_at?: string; _tz?: string } = {
       phone,
       message_type: 'text',
       data: { text: body },
@@ -55,6 +55,10 @@ export class CubeConnect {
 
     if (options?.scheduledAt) {
       payload.scheduled_at = options.scheduledAt
+    }
+
+    if (options?.timezone) {
+      payload._tz = options.timezone
     }
 
     return this.send(payload)
@@ -90,7 +94,7 @@ export class CubeConnect {
       data.components = components
     }
 
-    const payload: SendPayload & { scheduled_at?: string } = {
+    const payload: SendPayload & { scheduled_at?: string; _tz?: string } = {
       phone,
       message_type: 'template',
       data,
@@ -98,6 +102,10 @@ export class CubeConnect {
 
     if (options?.scheduledAt) {
       payload.scheduled_at = options.scheduledAt
+    }
+
+    if (options?.timezone) {
+      payload._tz = options.timezone
     }
 
     return this.send(payload)
@@ -117,6 +125,7 @@ export class CubeConnect {
       recipients:          payload.recipients,
       campaign_name:       payload.campaignName,
       scheduled_at:        payload.scheduledAt,
+      _tz:                 payload.timezone,
     }
 
     let response: Response

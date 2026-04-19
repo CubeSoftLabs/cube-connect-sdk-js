@@ -59,8 +59,10 @@ export interface ApiErrorResponse {
 
 /** خيارات إرسال الرسائل (اختيارية) */
 export interface SendOptions {
-  /** وقت الإرسال المجدول — ISO 8601 (مثال: "2026-05-01T10:00:00Z") */
+  /** وقت الإرسال المجدول — ISO 8601 (مثال: "2026-05-01T10:00:00") */
   scheduledAt?: string
+  /** المنطقة الزمنية — IANA (مثال: "Asia/Riyadh"). مطلوب عند تمرير scheduledAt */
+  timezone?: string
 }
 
 /** مستلم واحد في حملة جماعية */
@@ -89,8 +91,10 @@ export interface CreateCampaignPayload {
   recipients: CampaignRecipient[]
   /** اسم الحملة (اختياري) */
   campaignName?: string
-  /** وقت الإرسال المجدول — ISO 8601 (اختياري) */
+  /** وقت الإرسال المجدول — ISO 8601 (اختياري، مثال: "2026-05-01T10:00:00") */
   scheduledAt?: string
+  /** المنطقة الزمنية — IANA (مطلوب عند تمرير scheduledAt، مثال: "Asia/Riyadh") */
+  timezone?: string
 }
 
 /** بيانات استجابة الحملة من API */
@@ -109,4 +113,5 @@ export interface CampaignResponseData {
 /** حمولة إرسال الرسالة الداخلية مع دعم الجدولة */
 export interface ScheduledSendPayload extends SendPayload {
   scheduled_at?: string
+  _tz?: string
 }
