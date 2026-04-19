@@ -18,36 +18,35 @@ Zero runtime dependencies. Works in Node.js 18+ and modern browsers.
 
 ## Quick Start
 
+WhatsApp restricts outbound messages to recipients who have **not** messaged you in the last 24 hours. To reach any customer — including for the first time — you must use a **pre-approved template**.
+
+Before running the example below, make sure you have:
+- **API key** — copy it from **Settings → API** in the dashboard
+- **Approved template** — create and submit one in **Dashboard → Templates**, then wait for Meta's approval
+
 ```typescript
 import { CubeConnect } from '@cubesoftware/cube-connect-sdk-js'
 
-const cube = new CubeConnect({ apiKey: 'YOUR_API_KEY' })
+const cube = new CubeConnect({ apiKey: process.env.CUBECONNECT_API_KEY })
 
-const response = await cube.sendText('+966501234567', 'Hello from JavaScript!')
-console.log(response.status)       // "queued"
-console.log(response.messageLogId) // 4521
+// Send a template message — works at any time, to any number
+const response = await cube.sendTemplate(
+  '+966501234567',
+  'order_confirmation',      // template name from Dashboard → Templates
+  ['ORD-1234', '500 SAR'],   // maps to {{1}}, {{2}} in the template body
+)
+
+console.log(response.status)        // "queued"
+console.log(response.messageLogId)  // 4521
 ```
+
+> **Sending a plain text reply?** `sendText()` is only for customers who sent you a message within the **last 24 hours**. See [Sending a Text Message](#sending-a-text-message).
 
 ## Usage
 
-### Sending a Text Message
-
-```typescript
-import { CubeConnect } from '@cubesoftware/cube-connect-sdk-js'
-
-const cube = new CubeConnect({ apiKey: 'YOUR_API_KEY' })
-
-const response = await cube.sendText('+966501234567', 'Your order has been confirmed.')
-
-response.status               // "queued"
-response.messageLogId         // 4521
-response.conversationCategory // "SERVICE"
-response.queued()             // true
-```
-
-> **Note:** Text messages require the recipient to have messaged you within the last 24 hours. Outside this window, use a [template message](#sending-a-template-message).
-
 ### Sending a Template Message
+
+Templates can be sent to any number at any time and are the standard way to initiate a conversation.
 
 ```typescript
 const response = await cube.sendTemplate(
@@ -56,7 +55,17 @@ const response = await cube.sendTemplate(
   ['ORD-1234', '500 SAR'],
 )
 
-// With explicit language code (default: en_US)
+response.status               // "queued"
+response.messageLogId         // 4521
+response.conversationCategory // "MARKETING" or "UTILITY"
+response.queued()             // true
+```
+
+Parameters map to `{{1}}`, `{{2}}`, etc. in the template body. The SDK automatically converts them to the Meta components format.
+
+**With an explicit language code** (default: `en_US`):
+
+```typescript
 const response = await cube.sendTemplate(
   '+966501234567',
   'order_confirmation',
@@ -65,12 +74,23 @@ const response = await cube.sendTemplate(
 )
 ```
 
-Parameters map to `{{1}}`, `{{2}}`, etc. in the template body. The SDK automatically converts them to the Meta components format. Templates can be sent at any time.
-
-### Template Without Parameters
+**Template without parameters:**
 
 ```typescript
 const response = await cube.sendTemplate('+966501234567', 'welcome_message')
+```
+
+### Sending a Text Message
+
+> **24-hour window:** `sendText()` only works when the recipient has sent you a message within the **last 24 hours** (a service conversation window). For first-time or outbound messages, use [`sendTemplate()`](#sending-a-template-message) instead.
+
+```typescript
+const response = await cube.sendText('+966501234567', 'Your order has been confirmed.')
+
+response.status               // "queued"
+response.messageLogId         // 4521
+response.conversationCategory // "SERVICE"
+response.queued()             // true
 ```
 
 ### Scheduled Message
@@ -109,11 +129,11 @@ const response = await cube.sendTemplate(
 
 ### Bulk Campaigns
 
-Send a message to a large list of recipients in a single API call:
+Send a message to a large list of recipients in a single API call. Requires `whatsappAccountId` found in **Dashboard → WhatsApp Numbers** (copy icon next to **API ID:**).
 
 ```typescript
 const campaign = await cube.createCampaign({
-  whatsappAccountId: 'YOUR_ACCOUNT_ID',   // Dashboard → WhatsApp Numbers → copy icon next to "API ID:"
+  whatsappAccountId: process.env.CUBECONNECT_WHATSAPP_ACCOUNT_ID,
   messageType: 'text',
   body: 'Your exclusive offer expires tomorrow!',
   recipients: [
@@ -121,13 +141,13 @@ const campaign = await cube.createCampaign({
     { phone: '+966509876543', name: 'Sara' },
   ],
   campaignName: 'Offer Reminder',
-  scheduledAt: '2026-05-01T09:00:00',     // optional
-  timezone: 'Asia/Riyadh',               // required when scheduledAt is set
+  scheduledAt: '2026-05-01T09:00:00',    // optional
+  timezone: 'Asia/Riyadh',              // required when scheduledAt is set
 })
 
-campaign.campaignId  // "01JX..."
-campaign.status      // "pending"
-campaign.totalCount  // 2
+campaign.campaignId     // "01JX..."
+campaign.status         // "pending"
+campaign.totalCount     // 2
 campaign.isScheduled()  // true
 ```
 
@@ -136,11 +156,11 @@ campaign.isScheduled()  // true
 ```typescript
 const campaign = await cube.getCampaign(campaignId)
 
-campaign.status       // "processing", "completed", "cancelled", "failed"
-campaign.totalCount   // 500
-campaign.sentCount    // 320
-campaign.failedCount  // 12
-campaign.scheduledAt  // "2026-05-01T06:00:00Z"
+campaign.status        // "processing", "completed", "cancelled", "failed"
+campaign.totalCount    // 500
+campaign.sentCount     // 320
+campaign.failedCount   // 12
+campaign.scheduledAt   // "2026-05-01T06:00:00Z"
 campaign.isCompleted() // true
 ```
 
@@ -262,28 +282,20 @@ event.isTest()   // false
 event.toObject() // Full payload object
 ```
 
-### TypeScript Types
-
-```typescript
-import type { WebhookEventType, WebhookPayload, VerifyOptions } from '@cubesoftware/cube-connect-sdk-js'
-```
-
 ## Configuration Options
 
 ```typescript
 const cube = new CubeConnect({
-  apiKey: 'YOUR_API_KEY',                    // Required
-  baseUrl: 'https://cubeconnect.io',         // Default
-  tenantId: 'tenant_123',                    // Optional (multi-tenant)
-  timeout: 30000,                            // Default: 30000ms
+  apiKey: process.env.CUBECONNECT_API_KEY,  // Required — Settings → API in the dashboard
+  baseUrl: 'https://cubeconnect.io',        // Default
+  timeout: 30000,                           // Default: 30000ms
 })
 ```
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `apiKey` | `string` | — | Your API key from the dashboard |
+| `apiKey` | `string` | — | Your API key — **Settings → API** in the dashboard |
 | `baseUrl` | `string` | `https://cubeconnect.io` | API base URL |
-| `tenantId` | `string` | `undefined` | Tenant ID (multi-tenant only) |
 | `timeout` | `number` | `30000` | Request timeout in milliseconds |
 
 ## Response Objects
@@ -303,7 +315,7 @@ Returned by `sendText()` and `sendTemplate()`:
 ```typescript
 response.queued()      // true if status is "queued"
 response.scheduled()   // true if status is "scheduled"
-response.toArray()     // Plain object representation
+response.toObject()    // Plain object representation
 ```
 
 ### CampaignResponse
@@ -343,10 +355,8 @@ import {
   CubeConnectError,
 } from '@cubesoftware/cube-connect-sdk-js'
 
-const cube = new CubeConnect({ apiKey: 'YOUR_API_KEY' })
-
 try {
-  await cube.sendText('+966501234567', 'Hello!')
+  await cube.sendTemplate('+966501234567', 'order_confirmation', ['ORD-1234'])
 } catch (e) {
   if (e instanceof AuthenticationError) {
     // 401 — Invalid or missing API key
