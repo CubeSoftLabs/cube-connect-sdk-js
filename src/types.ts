@@ -2,6 +2,8 @@
 export interface CubeConnectOptions {
   /** مفتاح API — مطلوب */
   apiKey: string
+  /** معرّف حساب واتساب — مطلوب. Dashboard → WhatsApp Numbers → "API ID:" */
+  whatsappAccountId: string
   /** رابط API الأساسي (الافتراضي: https://cubeconnect.io) */
   baseUrl?: string
   /** معرّف المستأجر — للحسابات متعددة المستأجرين */
@@ -43,6 +45,7 @@ export interface TemplateParameter {
 
 /** حمولة إرسال الرسالة (داخلي) */
 export interface SendPayload {
+  whatsapp_account_id: string
   phone: string
   message_type: 'text' | 'template'
   data: Record<string, unknown>
@@ -77,8 +80,6 @@ export interface CampaignRecipient {
 
 /** حمولة إنشاء حملة جماعية */
 export interface CreateCampaignPayload {
-  /** معرّف حساب واتساب المُرسِل */
-  whatsappAccountId: string
   /** نوع الرسالة */
   messageType: 'text' | 'template'
   /** نص الرسالة (للرسائل النصية) */

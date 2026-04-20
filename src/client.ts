@@ -26,6 +26,7 @@ const DEFAULT_TIMEOUT = 30_000
  */
 export class CubeConnect {
   private readonly apiKey: string
+  private readonly whatsappAccountId: string
   private readonly baseUrl: string
   private readonly tenantId: string | undefined
   private readonly timeout: number
@@ -35,7 +36,12 @@ export class CubeConnect {
       throw AuthenticationError.missingKey()
     }
 
+    if (!options.whatsappAccountId) {
+      throw new Error('CubeConnect: whatsappAccountId is required. Find it in Dashboard → WhatsApp Numbers → API ID:')
+    }
+
     this.apiKey = options.apiKey
+    this.whatsappAccountId = options.whatsappAccountId
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '')
     this.tenantId = options.tenantId
     this.timeout = options.timeout ?? DEFAULT_TIMEOUT
@@ -48,6 +54,7 @@ export class CubeConnect {
    */
   async sendText(phone: string, body: string, options?: SendOptions): Promise<MessageResponse> {
     const payload: SendPayload & { scheduled_at?: string; _tz?: string } = {
+      whatsapp_account_id: this.whatsappAccountId,
       phone,
       message_type: 'text',
       data: { text: body },
@@ -95,6 +102,7 @@ export class CubeConnect {
     }
 
     const payload: SendPayload & { scheduled_at?: string; _tz?: string } = {
+      whatsapp_account_id: this.whatsappAccountId,
       phone,
       message_type: 'template',
       data,
@@ -117,7 +125,7 @@ export class CubeConnect {
    */
   async createCampaign(payload: CreateCampaignPayload): Promise<CampaignResponse> {
     const body = {
-      whatsapp_account_id: payload.whatsappAccountId,
+      whatsapp_account_id: this.whatsappAccountId,
       message_type:        payload.messageType,
       body:                payload.body,
       template_id:         payload.templateId,

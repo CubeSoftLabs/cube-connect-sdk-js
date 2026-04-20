@@ -21,13 +21,17 @@ Zero runtime dependencies. Works in Node.js 18+ and modern browsers.
 WhatsApp restricts outbound messages to recipients who have **not** messaged you in the last 24 hours. To reach any customer — including for the first time — you must use a **pre-approved template**.
 
 Before running the example below, make sure you have:
-- **API key** — copy it from **Settings → API** in the dashboard
+- **API key** (`CUBECONNECT_API_KEY`) — copy it from **Settings → API** in the dashboard
+- **WhatsApp Account ID** (`CUBECONNECT_WHATSAPP_ACCOUNT_ID`) — copy it from **Dashboard → WhatsApp Numbers** (the **API ID:** copy button next to the number)
 - **Approved template** — create and submit one in **Dashboard → Templates**, then wait for Meta's approval
 
 ```typescript
 import { CubeConnect } from '@cubesoftware/cube-connect-sdk-js'
 
-const cube = new CubeConnect({ apiKey: process.env.CUBECONNECT_API_KEY })
+const cube = new CubeConnect({
+  apiKey: process.env.CUBECONNECT_API_KEY,
+  whatsappAccountId: process.env.CUBECONNECT_WHATSAPP_ACCOUNT_ID,
+})
 
 // Send a template message — works at any time, to any number
 const response = await cube.sendTemplate(
@@ -286,15 +290,17 @@ event.toObject() // Full payload object
 
 ```typescript
 const cube = new CubeConnect({
-  apiKey: process.env.CUBECONNECT_API_KEY,  // Required — Settings → API in the dashboard
-  baseUrl: 'https://cubeconnect.io',        // Default
-  timeout: 30000,                           // Default: 30000ms
+  apiKey: process.env.CUBECONNECT_API_KEY,                       // Required
+  whatsappAccountId: process.env.CUBECONNECT_WHATSAPP_ACCOUNT_ID, // Required
+  baseUrl: 'https://cubeconnect.io',                             // Default
+  timeout: 30000,                                                // Default: 30000ms
 })
 ```
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `apiKey` | `string` | — | Your API key — **Settings → API** in the dashboard |
+| `whatsappAccountId` | `string` | — | Your WhatsApp account ID — **Dashboard → WhatsApp Numbers → API ID:** |
 | `baseUrl` | `string` | `https://cubeconnect.io` | API base URL |
 | `timeout` | `number` | `30000` | Request timeout in milliseconds |
 
