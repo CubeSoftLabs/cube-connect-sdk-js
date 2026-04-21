@@ -16,26 +16,6 @@ npm install @cubesoftware/cube-connect-sdk-js
 
 Zero runtime dependencies. Works in Node.js 18+ and modern browsers.
 
-## Quick Start
-
-```typescript
-import { CubeConnect } from '@cubesoftware/cube-connect-sdk-js'
-
-const cube = new CubeConnect({
-  apiKey: process.env.CUBECONNECT_API_KEY,
-  whatsappAccountId: process.env.CUBECONNECT_WHATSAPP_ACCOUNT_ID,
-})
-
-const response = await cube.sendTemplate(
-  '+966501234567',
-  'order_confirmation',      // template name from Dashboard → Templates
-  ['ORD-1234', '500 SAR'],   // maps to {{1}}, {{2}} in the template body
-)
-
-console.log(response.status)        // "queued"
-console.log(response.messageLogId)  // 4521
-```
-
 ## Usage
 
 ### sendTemplate()
@@ -92,23 +72,51 @@ response.scheduledAt // "2026-05-01T06:00:00Z" (UTC)
 
 Send a pre-approved template to a large list in a single API call.
 
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `messageType` | string | Yes | Must be `template` |
+| `templateName` | string | Yes | Template name (same as `name` in `sendTemplate()`) |
+| `templateLanguage` | string | Yes | Language code (same as `languageCode` in `sendTemplate()`) |
+| `recipients` | array | Yes | List of recipients. Max 50,000 |
+| `recipients[].phone` | string | Yes | Recipient phone number |
+| `recipients[].name` | string | No | Recipient display name |
+| `recipients[].variables` | object | No | Per-recipient variables (e.g., `{ '1': 'Ahmed', '2': 'ORD-1234' }`) |
+| `campaignName` | string | No | Human-readable campaign name |
+| `scheduledAt` | string | No | ISO 8601 datetime for scheduled delivery |
+| `timezone` | string | No | IANA timezone. Required when `scheduledAt` is set |
+| `whatsappAccountId` | string | No | Override the default WhatsApp account |
+
 ```typescript
 const campaign = await cube.createCampaign({
   messageType: 'template',
-  templateName: 'order_confirmation',  // same name used in sendTemplate()
+  templateName: 'order_confirmation',
   templateLanguage: 'ar',
   recipients: [
-    { phone: '+966501234567', name: 'Ahmed', variables: { '1': 'Ahmed', '2': 'ORD-1234', '3': 'CUBE20' } },
-    { phone: '+966509876543', name: 'Sara',  variables: { '1': 'Sara',  '2': 'ORD-5678', '3': 'CUBE15' } },
+    { phone: '+966501234567', name: 'Ahmed', variables: { '1': 'Ahmed', '2': 'ORD-1234' } },
+    { phone: '+966509876543', name: 'Sara',  variables: { '1': 'Sara',  '2': 'ORD-5678' } },
   ],
-  campaignName: 'Offer Reminder',
-  scheduledAt: '2026-05-01T09:00:00', // optional
-  timezone: 'Asia/Riyadh',            // required when scheduledAt is set
+  campaignName: 'Order Notifications',
 })
 
-campaign.campaignId    // "01JX..."
+campaign.campaignId // "01JX..."
+campaign.status     // "pending"
+campaign.totalCount // 2
+```
+
+Scheduled delivery:
+
+```typescript
+const campaign = await cube.createCampaign({
+  messageType: 'template',
+  templateName: 'offer_reminder',
+  templateLanguage: 'ar',
+  recipients: [...],
+  campaignName: 'Flash Sale',
+  scheduledAt: '2026-05-01T09:00:00', // ISO 8601
+  timezone: 'Asia/Riyadh',            // IANA timezone
+})
+
 campaign.status        // "pending"
-campaign.totalCount    // 2
 campaign.isScheduled() // true
 ```
 
@@ -139,7 +147,7 @@ const templates = await cube.getTemplates({ status: 'APPROVED' })
 templates.forEach(t => {
   t.name        // "order_confirmation"
   t.paramsCount // 3
-  t.body        // "مرحباً {{1}}، طلبك رقم {{2}} تم شحنه."
+  t.body        // "Hello {{1}}, your order {{2}} has been shipped."
   t.header      // null
 })
 ```
