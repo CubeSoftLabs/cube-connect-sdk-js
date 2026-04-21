@@ -49,8 +49,8 @@ export class CubeConnect {
   async sendTemplate(
     phone: string,
     name: string,
+    languageCode: string,
     params: string[] = [],
-    languageCode: string = 'en_US',
     options?: SendOptions,
   ): Promise<MessageResponse> {
     const data: Record<string, unknown> = {

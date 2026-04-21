@@ -38,12 +38,22 @@ console.log(response.messageLogId)  // 4521
 
 ## Usage
 
-### Sending a Template Message
+### sendTemplate()
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `phone` | string | Yes | Recipient phone number with country code |
+| `name` | string | Yes | Template name (e.g., `order_confirmation`) |
+| `languageCode` | string | Yes | Language code matching the approved template (e.g., `ar`, `en_US`) |
+| `params` | string[] | No | Parameters mapping to `{{1}}`, `{{2}}`, etc. |
+| `options.scheduledAt` | string | No | ISO 8601 datetime for scheduled delivery |
+| `options.timezone` | string | No | IANA timezone. Required when `scheduledAt` is set |
 
 ```typescript
 const response = await cube.sendTemplate(
-  '+966501234567',       // phone number
-  'order_confirmation',  // template name
+  '+966501234567',         // phone
+  'order_confirmation',    // name
+  'ar',                    // languageCode
   ['ORD-1234', '500 SAR'], // params → {{1}}, {{2}}
 )
 
@@ -53,31 +63,20 @@ response.conversationCategory // "UTILITY"
 response.queued()             // true
 ```
 
-With a language code (default `en_US`):
-
-```typescript
-const response = await cube.sendTemplate(
-  '+966501234567',
-  'order_confirmation',
-  ['ORD-1234', '500 SAR'],
-  'ar', // language code
-)
-```
-
 Without parameters:
 
 ```typescript
-const response = await cube.sendTemplate('+966501234567', 'welcome_message')
+const response = await cube.sendTemplate('+966501234567', 'welcome_message', 'ar')
 ```
 
-### Scheduled Message
+Scheduled delivery:
 
 ```typescript
 const response = await cube.sendTemplate(
   '+966501234567',
   'appointment_reminder',
-  ['Dr. Ahmed', '10:00 AM'],
-  'ar',                       // language code
+  'ar',                        // languageCode
+  ['Dr. Ahmed', '10:00 AM'],   // params
   {
     scheduledAt: '2026-05-01T09:00:00', // ISO 8601
     timezone: 'Asia/Riyadh',            // IANA timezone
