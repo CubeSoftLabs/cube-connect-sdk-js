@@ -5,9 +5,11 @@ import type {
   SendOptions,
   CreateCampaignPayload,
   TemplateComponent,
+  TemplateData,
   ApiErrorResponse,
 } from './types.js'
 import { MessageResponse } from './message-response.js'
+import { MessageStatusResponse } from './message-status-response.js'
 import { CampaignResponse } from './campaign-response.js'
 import {
   CubeConnectError,
@@ -128,7 +130,8 @@ export class CubeConnect {
       whatsapp_account_id: this.whatsappAccountId,
       message_type:        payload.messageType,
       body:                payload.body,
-      template_id:         payload.templateId,
+      template_name:       payload.templateName,
+      template_language:   payload.templateLanguage,
       template_params:     payload.templateParams,
       recipients:          payload.recipients,
       campaign_name:       payload.campaignName,
@@ -183,6 +186,65 @@ export class CubeConnect {
 
     const json = await response.json()
     return CampaignResponse.fromResponse(json.data as Record<string, unknown>)
+  }
+
+  /**
+   * جلب حالة رسالة واحدة بمعرّفها.
+   * يُعيد الحالة الحالية (queued / sent / delivered / read / failed / scheduled).
+   */
+  async getMessageStatus(messageLogId: number): Promise<MessageStatusResponse> {
+    let response: Response
+
+    try {
+      response = await this.fetchWithTimeout(
+        `${this.baseUrl}/api/v1/messages/${encodeURIComponent(messageLogId)}`,
+        {
+          method: 'GET',
+          headers: this.buildHeaders(),
+        },
+      )
+    } catch (error) {
+      throw CubeConnectError.connectionFailed(
+        error instanceof Error ? error : undefined,
+      )
+    }
+
+    await this.handleErrors(response)
+
+    const json = await response.json()
+    return MessageStatusResponse.fromResponse(json.data as Record<string, unknown>)
+  }
+
+  /**
+   * جلب قائمة القوالب المعتمدة لحساب واتساب.
+   * يمكن تصفيتها بالحالة (مثال: 'APPROVED').
+   */
+  async getTemplates(options?: { status?: string }): Promise<TemplateData[]> {
+    const params = new URLSearchParams({ whatsapp_account_id: this.whatsappAccountId })
+    if (options?.status) params.set('status', options.status)
+
+    let response: Response
+
+    try {
+      response = await this.fetchWithTimeout(
+        `${this.baseUrl}/api/v1/templates?${params}`,
+        { method: 'GET', headers: this.buildHeaders() },
+      )
+    } catch (error) {
+      throw CubeConnectError.connectionFailed(error instanceof Error ? error : undefined)
+    }
+
+    await this.handleErrors(response)
+
+    const json = await response.json()
+    const raw = json.data as Array<Record<string, unknown>>
+    return raw.map((t) => ({
+      name:        t['name'] as string,
+      language:    t['language'] as string,
+      category:    t['category'] as TemplateData['category'],
+      status:      t['status'] as TemplateData['status'],
+      paramsCount: t['params_count'] as number,
+    }))
   }
 
   /**

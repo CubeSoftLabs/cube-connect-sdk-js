@@ -1,5 +1,6 @@
 export { CubeConnect } from './client.js'
 export { MessageResponse } from './message-response.js'
+export { MessageStatusResponse } from './message-status-response.js'
 export { CampaignResponse } from './campaign-response.js'
 export { verifyWebhookSignature, WebhookEvent } from './webhook.js'
 export {
@@ -13,12 +14,14 @@ export type {
   CubeConnectOptions,
   HealthResponse,
   MessageResponseData,
+  MessageStatusResponseData,
   TemplateComponent,
   TemplateParameter,
   SendOptions,
   CampaignRecipient,
   CreateCampaignPayload,
   CampaignResponseData,
+  TemplateData,
 } from './types.js'
 export type {
   WebhookEventType,

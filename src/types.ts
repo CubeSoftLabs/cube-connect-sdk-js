@@ -84,8 +84,10 @@ export interface CreateCampaignPayload {
   messageType: 'text' | 'template'
   /** نص الرسالة (للرسائل النصية) */
   body?: string
-  /** معرّف القالب (للقوالب) */
-  templateId?: string
+  /** اسم القالب المعتمد (للقوالب) — مثال: "order_confirmation" */
+  templateName?: string
+  /** رمز اللغة (اختياري) — مثال: "ar", "en_US" */
+  templateLanguage?: string
   /** معاملات القالب */
   templateParams?: string[]
   /** قائمة المستلمين */
@@ -115,4 +117,28 @@ export interface CampaignResponseData {
 export interface ScheduledSendPayload extends SendPayload {
   scheduled_at?: string
   _tz?: string
+}
+
+/** بيانات قالب واحد من API */
+export interface TemplateData {
+  name: string
+  language: string
+  category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
+  status: 'APPROVED' | 'PENDING' | 'REJECTED' | 'PAUSED' | 'DISABLED'
+  paramsCount: number
+}
+
+/** بيانات حالة رسالة واحدة */
+export interface MessageStatusResponseData {
+  messageLogId: number
+  status: string
+  toPhone: string
+  messageType: string
+  metaMessageId: string | null
+  sentAt: string | null
+  scheduledAt: string | null
+  costAmount: number
+  costCurrency: string
+  errorMessage: string | null
+  createdAt: string
 }
