@@ -66,6 +66,8 @@ export interface SendOptions {
   scheduledAt?: string
   /** المنطقة الزمنية — IANA (مثال: "Asia/Riyadh"). مطلوب عند تمرير scheduledAt */
   timezone?: string
+  /** Override the default whatsappAccountId set in the constructor */
+  whatsappAccountId?: string
 }
 
 /** مستلم واحد في حملة جماعية */
@@ -98,6 +100,8 @@ export interface CreateCampaignPayload {
   scheduledAt?: string
   /** المنطقة الزمنية — IANA (مطلوب عند تمرير scheduledAt، مثال: "Asia/Riyadh") */
   timezone?: string
+  /** Override the default whatsappAccountId set in the constructor */
+  whatsappAccountId?: string
 }
 
 /** بيانات استجابة الحملة من API */

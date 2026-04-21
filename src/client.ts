@@ -69,7 +69,7 @@ export class CubeConnect {
     }
 
     const payload: SendPayload & { scheduled_at?: string; _tz?: string } = {
-      whatsapp_account_id: this.whatsappAccountId,
+      whatsapp_account_id: options?.whatsappAccountId ?? this.whatsappAccountId,
       phone,
       message_type: 'template',
       data,
@@ -81,10 +81,10 @@ export class CubeConnect {
     return this.send(payload)
   }
 
-  /** Create a bulk campaign. */
+  /** Create a bulk campaign. Pass whatsappAccountId inside payload to override the default. */
   async createCampaign(payload: CreateCampaignPayload): Promise<CampaignResponse> {
     const body = {
-      whatsapp_account_id: this.whatsappAccountId,
+      whatsapp_account_id: payload.whatsappAccountId ?? this.whatsappAccountId,
       message_type:        payload.messageType,
       body:                payload.body,
       template_name:       payload.templateName,
@@ -171,9 +171,9 @@ export class CubeConnect {
     return MessageStatusResponse.fromResponse(json.data as Record<string, unknown>)
   }
 
-  /** List templates for the configured WhatsApp account. Pass status to filter (e.g. 'APPROVED'). */
-  async getTemplates(options?: { status?: string }): Promise<TemplateData[]> {
-    const params = new URLSearchParams({ whatsapp_account_id: this.whatsappAccountId })
+  /** List templates. Pass whatsappAccountId in options to override the default. Pass status to filter (e.g. 'APPROVED'). */
+  async getTemplates(options?: { status?: string; whatsappAccountId?: string }): Promise<TemplateData[]> {
+    const params = new URLSearchParams({ whatsapp_account_id: options?.whatsappAccountId ?? this.whatsappAccountId })
     if (options?.status) params.set('status', options.status)
 
     let response: Response

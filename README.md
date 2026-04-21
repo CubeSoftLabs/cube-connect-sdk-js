@@ -48,6 +48,7 @@ console.log(response.messageLogId)  // 4521
 | `params` | string[] | No | Parameters mapping to `{{1}}`, `{{2}}`, etc. |
 | `options.scheduledAt` | string | No | ISO 8601 datetime for scheduled delivery |
 | `options.timezone` | string | No | IANA timezone. Required when `scheduledAt` is set |
+| `options.whatsappAccountId` | string | No | Override the default WhatsApp account (useful with multiple numbers) |
 
 ```typescript
 const response = await cube.sendTemplate(
