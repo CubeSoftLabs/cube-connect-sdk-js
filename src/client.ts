@@ -68,7 +68,7 @@ export class CubeConnect {
       data.components = components
     }
 
-    const payload: SendPayload & { scheduled_at?: string; _tz?: string } = {
+    const payload: SendPayload & { scheduled_at?: string; timezone?: string } = {
       whatsapp_account_id: options?.whatsappAccountId ?? this.whatsappAccountId,
       phone,
       message_type: 'template',
@@ -76,7 +76,7 @@ export class CubeConnect {
     }
 
     if (options?.scheduledAt) payload.scheduled_at = options.scheduledAt
-    if (options?.timezone)    payload._tz           = options.timezone
+    if (options?.timezone)    payload.timezone      = options.timezone
 
     return this.send(payload)
   }
@@ -93,7 +93,7 @@ export class CubeConnect {
       recipients:          payload.recipients,
       campaign_name:       payload.campaignName,
       scheduled_at:        payload.scheduledAt,
-      _tz:                 payload.timezone,
+      timezone:            payload.timezone,
     }
 
     let response: Response

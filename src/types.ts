@@ -120,7 +120,7 @@ export interface CampaignResponseData {
 /** حمولة إرسال الرسالة الداخلية مع دعم الجدولة */
 export interface ScheduledSendPayload extends SendPayload {
   scheduled_at?: string
-  _tz?: string
+  timezone?: string
 }
 
 /** بيانات قالب واحد من API */

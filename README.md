@@ -16,6 +16,50 @@ npm install @cubesoftware/cube-connect-sdk-js
 
 Zero runtime dependencies. Works in Node.js 18+ and modern browsers.
 
+## Configuration
+
+```typescript
+const cube = new CubeConnect({
+  apiKey: process.env.CUBECONNECT_API_KEY,                        // Required — Settings → API
+  whatsappAccountId: process.env.CUBECONNECT_WHATSAPP_ACCOUNT_ID, // Required — Dashboard → WhatsApp Numbers → API ID:
+  baseUrl: 'https://cubeconnect.io',                              // Default
+  timeout: 30000,                                                  // Default: 30000ms
+})
+```
+
+## Multiple WhatsApp Numbers
+
+If your account has more than one connected number, set a default in the constructor and override it per call using `options.whatsappAccountId`:
+
+```typescript
+const cube = new CubeConnect({
+  apiKey: process.env.CUBECONNECT_API_KEY,
+  whatsappAccountId: '01JX_DEFAULT',  // used when no override is passed
+})
+
+// Send from the default number
+await cube.sendTemplate('+966501234567', 'order_confirmation', 'ar', ['ORD-1234'])
+
+// Send from a different number
+await cube.sendTemplate('+966501234567', 'offer_reminder', 'ar', ['50%'], {
+  whatsappAccountId: '01JX_MARKETING',
+})
+
+// List templates for a specific number
+const templates = await cube.getTemplates({ whatsappAccountId: '01JX_MARKETING' })
+
+// Create a campaign from a specific number
+await cube.createCampaign({
+  messageType: 'template',
+  templateName: 'offer_reminder',
+  templateLanguage: 'ar',
+  recipients: [...],
+  whatsappAccountId: '01JX_MARKETING',
+})
+```
+
+Find each number's ID in **Dashboard → WhatsApp Numbers → API ID:**.
+
 ## Usage
 
 ### sendTemplate()
@@ -152,6 +196,31 @@ templates.forEach(t => {
 })
 ```
 
+### Get Message Status
+
+Retrieve the current delivery status of a previously sent message using the `messageLogId` returned by `sendTemplate()`.
+
+```typescript
+const msg = await cube.getMessageStatus(4521)
+
+msg.messageLogId  // 4521
+msg.status        // "delivered"
+msg.toPhone       // "966501234567"
+msg.messageType   // "template"
+msg.metaMessageId // "wamid.HBgN..."
+msg.sentAt        // "2026-05-01T07:05:00Z"
+msg.scheduledAt   // null
+msg.costAmount    // 0.05
+msg.costCurrency  // "SAR"
+msg.errorMessage  // null (set if status is "failed")
+
+msg.isSent()      // true if status is "sent"
+msg.isDelivered() // true if status is "delivered"
+msg.isRead()      // true if status is "read"
+msg.isFailed()    // true if status is "failed"
+msg.isScheduled() // true if status is "scheduled"
+```
+
 ### Health Check
 
 ```typescript
@@ -209,17 +278,6 @@ app.post('/cubeconnect/webhook', express.raw({ type: 'application/json' }), (req
 | `account.quality_event` | `isQualityEvent()` | Quality event (block or report) |
 | `webhook.test` | `isTest()` | Connection test ping |
 
-## Configuration Options
-
-```typescript
-const cube = new CubeConnect({
-  apiKey: process.env.CUBECONNECT_API_KEY,                        // Required — Settings → API
-  whatsappAccountId: process.env.CUBECONNECT_WHATSAPP_ACCOUNT_ID, // Required — Dashboard → WhatsApp Numbers → API ID:
-  baseUrl: 'https://cubeconnect.io',                              // Default
-  timeout: 30000,                                                  // Default: 30000ms
-})
-```
-
 ## Response Objects
 
 ### MessageResponse
@@ -262,6 +320,56 @@ campaign.isCancelled()  // true if status is "cancelled"
 campaign.toObject()     // Plain object representation
 ```
 
+### MessageStatusResponse
+
+Returned by `getMessageStatus()`:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `messageLogId` | `number` | Unique message log ID |
+| `status` | `string` | `queued`, `scheduled`, `sent`, `delivered`, `read`, or `failed` |
+| `toPhone` | `string` | Recipient phone number |
+| `messageType` | `string` | `template` or `text` |
+| `metaMessageId` | `string \| null` | WhatsApp message ID (set after delivery) |
+| `sentAt` | `string \| null` | UTC datetime when sent to WhatsApp |
+| `scheduledAt` | `string \| null` | UTC datetime of scheduled delivery |
+| `costAmount` | `number` | Message cost |
+| `costCurrency` | `string` | Currency code (e.g., `SAR`) |
+| `errorMessage` | `string \| null` | Error details if status is `failed` |
+| `createdAt` | `string` | UTC creation datetime |
+
+```typescript
+msg.isSent()      // true if status is "sent"
+msg.isDelivered() // true if status is "delivered"
+msg.isRead()      // true if status is "read"
+msg.isFailed()    // true if status is "failed"
+msg.isScheduled() // true if status is "scheduled"
+msg.toObject()    // Plain object representation
+```
+
+## Error Reference
+
+| HTTP | Error Code | Cause |
+|------|------------|-------|
+| 401 | `AUTHENTICATION_REQUIRED` | No API key provided in the request |
+| 401 | `INVALID_API_KEY` | API key is invalid or has been revoked |
+| 403 | `FORBIDDEN` | API key does not have permission for this action |
+| 403 | `API_KEY_NO_TENANT` | API key is not linked to any account |
+| 404 | `NOT_FOUND` | The requested resource does not exist |
+| 404 | `TEMPLATE_NOT_FOUND` | Template name not found in your account |
+| 422 | `VALIDATION_ERROR` | Request failed input validation — check `error.details` for field-level errors |
+| 422 | `INVALID_PHONE_NUMBER` | Phone number is not in a valid international format |
+| 422 | `NO_ACTIVE_ACCOUNT` | No connected WhatsApp number found for the given `whatsapp_account_id` |
+| 422 | `MISSING_ACCESS_TOKEN` | The selected WhatsApp number has no Meta access token configured |
+| 422 | `TEMPLATE_LANGUAGE_MISMATCH` | Language code does not match any approved version of this template |
+| 422 | `TEMPLATE_PARAMS_MISMATCH` | Fewer parameters provided than the template requires |
+| 429 | `RATE_LIMIT_EXCEEDED` | Too many API requests — apply exponential backoff and retry |
+| 429 | `PLAN_LIMIT_REACHED` | Monthly message quota reached — upgrade your plan |
+| 429 | `SUBSCRIPTION_EXPIRED` | Subscription has expired |
+| 500 | `MESSAGE_SEND_FAILED` | WhatsApp API rejected or failed to deliver the message |
+| 500 | `INTERNAL_ERROR` | Unexpected server error — contact support if this persists |
+| 503 | `SERVICE_DEGRADED` | One or more platform services are temporarily unavailable |
+
 ## Error Handling
 
 ```typescript
@@ -275,7 +383,7 @@ import {
 } from '@cubesoftware/cube-connect-sdk-js'
 
 try {
-  await cube.sendTemplate('+966501234567', 'order_confirmation', ['ORD-1234'])
+  await cube.sendTemplate('+966501234567', 'order_confirmation', 'ar', ['ORD-1234'])
 } catch (e) {
   if (e instanceof AuthenticationError) {
     // 401/403 — Invalid API key or permissions
@@ -310,6 +418,7 @@ import type {
   CreateCampaignPayload,
   CampaignRecipient,
   CampaignResponseData,
+  MessageStatusResponseData,
   TemplateData,
 } from '@cubesoftware/cube-connect-sdk-js'
 
