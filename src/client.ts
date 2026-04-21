@@ -20,12 +20,8 @@ import {
 } from './errors/index.js'
 
 const DEFAULT_BASE_URL = 'https://cubeconnect.io'
-const DEFAULT_TIMEOUT = 30_000
+const DEFAULT_TIMEOUT  = 30_000
 
-/**
- * عميل CubeConnect الرئيسي
- * يطابق CubeConnect.php في PHP SDK
- */
 export class CubeConnect {
   private readonly apiKey: string
   private readonly whatsappAccountId: string
@@ -42,42 +38,14 @@ export class CubeConnect {
       throw new Error('CubeConnect: whatsappAccountId is required. Find it in Dashboard → WhatsApp Numbers → API ID:')
     }
 
-    this.apiKey = options.apiKey
+    this.apiKey            = options.apiKey
     this.whatsappAccountId = options.whatsappAccountId
-    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '')
-    this.tenantId = options.tenantId
-    this.timeout = options.timeout ?? DEFAULT_TIMEOUT
+    this.baseUrl           = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '')
+    this.tenantId          = options.tenantId
+    this.timeout           = options.timeout ?? DEFAULT_TIMEOUT
   }
 
-  /**
-   * إرسال رسالة نصية إلى رقم واتساب.
-   * يجب أن يكون المستلم قد راسلك خلال آخر 24 ساعة.
-   * يمكن تحديد scheduledAt لإرسالها في وقت لاحق.
-   */
-  async sendText(phone: string, body: string, options?: SendOptions): Promise<MessageResponse> {
-    const payload: SendPayload & { scheduled_at?: string; _tz?: string } = {
-      whatsapp_account_id: this.whatsappAccountId,
-      phone,
-      message_type: 'text',
-      data: { text: body },
-    }
-
-    if (options?.scheduledAt) {
-      payload.scheduled_at = options.scheduledAt
-    }
-
-    if (options?.timezone) {
-      payload._tz = options.timezone
-    }
-
-    return this.send(payload)
-  }
-
-  /**
-   * إرسال قالب رسالة معتمد مسبقاً.
-   * يمكن الإرسال في أي وقت بغض النظر عن نافذة 24 ساعة.
-   * يمكن تحديد scheduledAt لإرسالها في وقت لاحق.
-   */
+  /** Send a pre-approved template message. Params map to {{1}}, {{2}}, etc. */
   async sendTemplate(
     phone: string,
     name: string,
@@ -94,10 +62,7 @@ export class CubeConnect {
       const components: TemplateComponent[] = [
         {
           type: 'body',
-          parameters: params.map((value) => ({
-            type: 'text',
-            text: String(value),
-          })),
+          parameters: params.map((value) => ({ type: 'text', text: String(value) })),
         },
       ]
       data.components = components
@@ -110,21 +75,13 @@ export class CubeConnect {
       data,
     }
 
-    if (options?.scheduledAt) {
-      payload.scheduled_at = options.scheduledAt
-    }
-
-    if (options?.timezone) {
-      payload._tz = options.timezone
-    }
+    if (options?.scheduledAt) payload.scheduled_at = options.scheduledAt
+    if (options?.timezone)    payload._tz           = options.timezone
 
     return this.send(payload)
   }
 
-  /**
-   * إنشاء حملة جماعية (مع دعم الجدولة الاختيارية).
-   * يُعيد CampaignResponse يحتوي على campaign_id والحالة الأولية.
-   */
+  /** Create a bulk campaign. */
   async createCampaign(payload: CreateCampaignPayload): Promise<CampaignResponse> {
     const body = {
       whatsapp_account_id: this.whatsappAccountId,
@@ -142,18 +99,13 @@ export class CubeConnect {
     let response: Response
 
     try {
-      response = await this.fetchWithTimeout(
-        `${this.baseUrl}/api/v1/campaigns`,
-        {
-          method: 'POST',
-          headers: this.buildHeaders(),
-          body: JSON.stringify(body),
-        },
-      )
+      response = await this.fetchWithTimeout(`${this.baseUrl}/api/v1/campaigns`, {
+        method: 'POST',
+        headers: this.buildHeaders(),
+        body: JSON.stringify(body),
+      })
     } catch (error) {
-      throw CubeConnectError.connectionFailed(
-        error instanceof Error ? error : undefined,
-      )
+      throw CubeConnectError.connectionFailed(error instanceof Error ? error : undefined)
     }
 
     await this.handleErrors(response)
@@ -162,24 +114,17 @@ export class CubeConnect {
     return CampaignResponse.fromResponse(json.data as Record<string, unknown>)
   }
 
-  /**
-   * جلب حالة حملة جماعية بمعرّفها.
-   */
+  /** Retrieve campaign status and statistics. */
   async getCampaign(campaignId: string): Promise<CampaignResponse> {
     let response: Response
 
     try {
       response = await this.fetchWithTimeout(
         `${this.baseUrl}/api/v1/campaigns/${encodeURIComponent(campaignId)}`,
-        {
-          method: 'GET',
-          headers: this.buildHeaders(),
-        },
+        { method: 'GET', headers: this.buildHeaders() },
       )
     } catch (error) {
-      throw CubeConnectError.connectionFailed(
-        error instanceof Error ? error : undefined,
-      )
+      throw CubeConnectError.connectionFailed(error instanceof Error ? error : undefined)
     }
 
     await this.handleErrors(response)
@@ -188,25 +133,36 @@ export class CubeConnect {
     return CampaignResponse.fromResponse(json.data as Record<string, unknown>)
   }
 
-  /**
-   * جلب حالة رسالة واحدة بمعرّفها.
-   * يُعيد الحالة الحالية (queued / sent / delivered / read / failed / scheduled).
-   */
+  /** Cancel a scheduled campaign that has not yet started. */
+  async cancelCampaign(campaignId: string): Promise<{ success: boolean }> {
+    let response: Response
+
+    try {
+      response = await this.fetchWithTimeout(
+        `${this.baseUrl}/api/v1/campaigns/${encodeURIComponent(campaignId)}/cancel`,
+        { method: 'POST', headers: this.buildHeaders(), body: JSON.stringify({}) },
+      )
+    } catch (error) {
+      throw CubeConnectError.connectionFailed(error instanceof Error ? error : undefined)
+    }
+
+    await this.handleErrors(response)
+
+    const json = await response.json()
+    return { success: (json.data as Record<string, unknown>)?.['success'] === true }
+  }
+
+  /** Get the current delivery status of a sent message. */
   async getMessageStatus(messageLogId: number): Promise<MessageStatusResponse> {
     let response: Response
 
     try {
       response = await this.fetchWithTimeout(
         `${this.baseUrl}/api/v1/messages/${encodeURIComponent(messageLogId)}`,
-        {
-          method: 'GET',
-          headers: this.buildHeaders(),
-        },
+        { method: 'GET', headers: this.buildHeaders() },
       )
     } catch (error) {
-      throw CubeConnectError.connectionFailed(
-        error instanceof Error ? error : undefined,
-      )
+      throw CubeConnectError.connectionFailed(error instanceof Error ? error : undefined)
     }
 
     await this.handleErrors(response)
@@ -215,10 +171,7 @@ export class CubeConnect {
     return MessageStatusResponse.fromResponse(json.data as Record<string, unknown>)
   }
 
-  /**
-   * جلب قائمة القوالب المعتمدة لحساب واتساب.
-   * يمكن تصفيتها بالحالة (مثال: 'APPROVED').
-   */
+  /** List templates for the configured WhatsApp account. Pass status to filter (e.g. 'APPROVED'). */
   async getTemplates(options?: { status?: string }): Promise<TemplateData[]> {
     const params = new URLSearchParams({ whatsapp_account_id: this.whatsappAccountId })
     if (options?.status) params.set('status', options.status)
@@ -247,83 +200,39 @@ export class CubeConnect {
     }))
   }
 
-  /**
-   * إلغاء حملة مجدولة لم تبدأ بعد.
-   */
-  async cancelCampaign(campaignId: string): Promise<{ success: boolean }> {
-    let response: Response
-
-    try {
-      response = await this.fetchWithTimeout(
-        `${this.baseUrl}/api/v1/campaigns/${encodeURIComponent(campaignId)}/cancel`,
-        {
-          method: 'POST',
-          headers: this.buildHeaders(),
-          body: JSON.stringify({}),
-        },
-      )
-    } catch (error) {
-      throw CubeConnectError.connectionFailed(
-        error instanceof Error ? error : undefined,
-      )
-    }
-
-    await this.handleErrors(response)
-
-    const json = await response.json()
-    return { success: (json.data as Record<string, unknown>)?.['success'] === true }
-  }
-
-  /**
-   * فحص حالة المنصة.
-   * لا يتطلب مصادقة.
-   */
+  /** Check the platform health status. No authentication required. */
   async health(): Promise<HealthResponse> {
     let response: Response
 
     try {
-      response = await this.fetchWithTimeout(
-        `${this.baseUrl}/api/health`,
-        { method: 'GET' },
-      )
+      response = await this.fetchWithTimeout(`${this.baseUrl}/api/health`, { method: 'GET' })
     } catch (error) {
-      throw CubeConnectError.connectionFailed(
-        error instanceof Error ? error : undefined,
-      )
+      throw CubeConnectError.connectionFailed(error instanceof Error ? error : undefined)
     }
 
     if (!response.ok) {
       const body = await this.parseJson(response)
       const apiError = body?.error
-      throw CubeConnectError.serverError(
-        response.status,
-        apiError?.code ?? '',
-        apiError?.message ?? '',
-      )
+      throw CubeConnectError.serverError(response.status, apiError?.code ?? '', apiError?.message ?? '')
     }
 
     const body = await response.json()
     return body.data as HealthResponse
   }
 
-  // ── Private ──────────────────────────────────────────────
+  // ── Private ──────────────────────────────────────────────────────────────
 
   private async send(payload: SendPayload & { scheduled_at?: string }): Promise<MessageResponse> {
     let response: Response
 
     try {
-      response = await this.fetchWithTimeout(
-        `${this.baseUrl}/api/v1/messages/send`,
-        {
-          method: 'POST',
-          headers: this.buildHeaders(),
-          body: JSON.stringify(payload),
-        },
-      )
+      response = await this.fetchWithTimeout(`${this.baseUrl}/api/v1/messages/send`, {
+        method: 'POST',
+        headers: this.buildHeaders(),
+        body: JSON.stringify(payload),
+      })
     } catch (error) {
-      throw CubeConnectError.connectionFailed(
-        error instanceof Error ? error : undefined,
-      )
+      throw CubeConnectError.connectionFailed(error instanceof Error ? error : undefined)
     }
 
     await this.handleErrors(response)
@@ -335,8 +244,8 @@ export class CubeConnect {
   private buildHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       'Authorization': `Bearer ${this.apiKey}`,
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
+      'Content-Type':  'application/json',
+      'Accept':        'application/json',
     }
 
     if (this.tenantId) {
@@ -348,17 +257,13 @@ export class CubeConnect {
 
   private async fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout)
+    const timeoutId  = setTimeout(() => controller.abort(), this.timeout)
 
     try {
       return await fetch(url, { ...init, signal: controller.signal })
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
-        throw new CubeConnectError(
-          `Request timed out after ${this.timeout}ms.`,
-          0,
-          'TIMEOUT',
-        )
+        throw new CubeConnectError(`Request timed out after ${this.timeout}ms.`, 0, 'TIMEOUT')
       }
       throw error
     } finally {
@@ -369,26 +274,20 @@ export class CubeConnect {
   private async handleErrors(response: Response): Promise<void> {
     if (response.ok) return
 
-    const body = await this.parseJson(response)
+    const body    = await this.parseJson(response)
     const apiError = body?.error
-    const code = apiError?.code ?? ''
+    const code    = apiError?.code ?? ''
     const message = apiError?.message ?? ''
     const details = apiError?.details ?? {}
-    const status = response.status
+    const status  = response.status
 
     switch (status) {
-      case 401:
-        throw AuthenticationError.invalidKey(code, message)
-      case 403:
-        throw AuthenticationError.forbidden(code, message)
-      case 404:
-        throw NotFoundError.resource(code, message)
-      case 422:
-        throw ValidationError.withErrors(code, message, details)
-      case 429:
-        throw RateLimitError.exceeded(code, message)
-      default:
-        throw CubeConnectError.serverError(status, code, message)
+      case 401: throw AuthenticationError.invalidKey(code, message)
+      case 403: throw AuthenticationError.forbidden(code, message)
+      case 404: throw NotFoundError.resource(code, message)
+      case 422: throw ValidationError.withErrors(code, message, details)
+      case 429: throw RateLimitError.exceeded(code, message)
+      default:  throw CubeConnectError.serverError(status, code, message)
     }
   }
 
