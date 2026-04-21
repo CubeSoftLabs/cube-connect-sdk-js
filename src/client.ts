@@ -197,6 +197,8 @@ export class CubeConnect {
       category:    t['category'] as TemplateData['category'],
       status:      t['status'] as TemplateData['status'],
       paramsCount: t['params_count'] as number,
+      body:        (t['body'] as string | null) ?? null,
+      header:      (t['header'] as string | null) ?? null,
     }))
   }
 

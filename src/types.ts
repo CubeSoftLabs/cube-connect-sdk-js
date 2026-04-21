@@ -130,6 +130,8 @@ export interface TemplateData {
   category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
   status: 'APPROVED' | 'PENDING' | 'REJECTED' | 'PAUSED' | 'DISABLED'
   paramsCount: number
+  body: string | null
+  header: string | null
 }
 
 /** بيانات حالة رسالة واحدة */
