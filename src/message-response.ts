@@ -6,13 +6,13 @@ import type { MessageResponseData } from './types.js'
  */
 export class MessageResponse {
   public readonly status: string
-  public readonly messageLogId: number
+  public readonly messageLogId: string
   public readonly conversationCategory: string
   public readonly cost: number
 
   constructor(data: MessageResponseData) {
     this.status = data.status ?? ''
-    this.messageLogId = data.message_log_id ?? 0
+    this.messageLogId = data.message_log_id ?? ''
     this.conversationCategory = data.conversation_category ?? ''
     this.cost = data.cost ?? 0
   }

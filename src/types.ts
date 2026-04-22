@@ -15,7 +15,7 @@ export interface CubeConnectOptions {
 /** بيانات استجابة الرسالة من API */
 export interface MessageResponseData {
   status: string
-  message_log_id: number
+  message_log_id: string
   conversation_category: string
   cost: number
 }
@@ -136,7 +136,7 @@ export interface TemplateData {
 
 /** بيانات حالة رسالة واحدة */
 export interface MessageStatusResponseData {
-  messageLogId: number
+  messageLogId: string
   status: string
   toPhone: string
   messageType: string

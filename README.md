@@ -83,7 +83,7 @@ const response = await cube.sendTemplate(
 )
 
 response.status               // "queued"
-response.messageLogId         // 4521
+response.messageLogId         // "01JXXX..."
 response.conversationCategory // "UTILITY"
 response.queued()             // true
 ```
@@ -287,7 +287,7 @@ Returned by `sendTemplate()`:
 | Property | Type | Description |
 |----------|------|-------------|
 | `status` | `string` | `queued` for immediate delivery, `scheduled` for future delivery |
-| `messageLogId` | `number` | Unique tracking ID |
+| `messageLogId` | `string` | Unique tracking ID |
 | `conversationCategory` | `string` | `MARKETING`, `UTILITY`, or `AUTHENTICATION` |
 | `cost` | `number` | Message cost |
 | `scheduledAt` | `string \| null` | UTC datetime if scheduled, otherwise `null` |
@@ -326,7 +326,7 @@ Returned by `getMessageStatus()`:
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `messageLogId` | `number` | Unique message log ID |
+| `messageLogId` | `string` | Unique message log ID |
 | `status` | `string` | `queued`, `scheduled`, `sent`, `delivered`, `read`, or `failed` |
 | `toPhone` | `string` | Recipient phone number |
 | `messageType` | `string` | `template` or `text` |

@@ -153,7 +153,7 @@ export class CubeConnect {
   }
 
   /** Get the current delivery status of a sent message. */
-  async getMessageStatus(messageLogId: number): Promise<MessageStatusResponse> {
+  async getMessageStatus(messageLogId: string): Promise<MessageStatusResponse> {
     let response: Response
 
     try {

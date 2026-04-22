@@ -4,7 +4,7 @@ import type { MessageStatusResponseData } from './types.js'
  * استجابة حالة رسالة واحدة من API
  */
 export class MessageStatusResponse {
-  readonly messageLogId: number
+  readonly messageLogId: string
   readonly status: string
   readonly toPhone: string
   readonly messageType: string
@@ -32,7 +32,7 @@ export class MessageStatusResponse {
 
   static fromResponse(data: Record<string, unknown>): MessageStatusResponse {
     return new MessageStatusResponse({
-      messageLogId:  Number(data['message_log_id'] ?? 0),
+      messageLogId:  String(data['message_log_id'] ?? ''),
       status:        String(data['status'] ?? ''),
       toPhone:       String(data['to_phone'] ?? ''),
       messageType:   String(data['message_type'] ?? ''),
