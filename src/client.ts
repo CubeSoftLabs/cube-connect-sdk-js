@@ -4,6 +4,7 @@ import type {
   SendPayload,
   SendOptions,
   CreateCampaignPayload,
+  CampaignRecipientsPage,
   TemplateComponent,
   TemplateData,
   ApiErrorResponse,
@@ -131,6 +132,55 @@ export class CubeConnect {
 
     const json = await response.json()
     return CampaignResponse.fromResponse(json.data as Record<string, unknown>)
+  }
+
+  /** Get paginated list of campaign recipients with their delivery status. */
+  async getCampaignRecipients(
+    campaignId: string,
+    options?: { page?: number; perPage?: number; status?: string },
+  ): Promise<CampaignRecipientsPage> {
+    const params = new URLSearchParams()
+    if (options?.page)    params.set('page',     String(options.page))
+    if (options?.perPage) params.set('per_page', String(options.perPage))
+    if (options?.status)  params.set('status',   options.status)
+
+    const qs = params.size > 0 ? `?${params}` : ''
+
+    let response: Response
+
+    try {
+      response = await this.fetchWithTimeout(
+        `${this.baseUrl}/api/v1/campaigns/${encodeURIComponent(campaignId)}/recipients${qs}`,
+        { method: 'GET', headers: this.buildHeaders() },
+      )
+    } catch (error) {
+      throw CubeConnectError.connectionFailed(error instanceof Error ? error : undefined)
+    }
+
+    await this.handleErrors(response)
+
+    const json = await response.json()
+    const data = json.data as Record<string, unknown>
+    const rawRecipients = (data['recipients'] as Array<Record<string, unknown>>) ?? []
+    const rawPagination = (data['pagination'] as Record<string, number>) ?? {}
+
+    return {
+      campaignId: data['campaign_id'] as string,
+      recipients: rawRecipients.map((r) => ({
+        phone:         r['phone'] as string,
+        name:          (r['name'] as string | null) ?? null,
+        status:        r['status'] as string,
+        messageLogId:  (r['message_log_id'] as string | null) ?? null,
+        errorMessage:  (r['error_message'] as string | null) ?? null,
+        sentAt:        (r['sent_at'] as string | null) ?? null,
+      })),
+      pagination: {
+        currentPage: rawPagination['current_page'] ?? 1,
+        perPage:     rawPagination['per_page'] ?? 50,
+        total:       rawPagination['total'] ?? 0,
+        lastPage:    rawPagination['last_page'] ?? 1,
+      },
+    }
   }
 
   /** Cancel a scheduled campaign that has not yet started. */

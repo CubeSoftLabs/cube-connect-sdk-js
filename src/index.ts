@@ -21,6 +21,8 @@ export type {
   CampaignRecipient,
   CreateCampaignPayload,
   CampaignResponseData,
+  CampaignRecipientResult,
+  CampaignRecipientsPage,
   TemplateData,
 } from './types.js'
 export type {

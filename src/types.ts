@@ -134,6 +134,29 @@ export interface TemplateData {
   header: string | null
 }
 
+/** نتيجة تسليم مستلم واحد في حملة */
+export interface CampaignRecipientResult {
+  phone: string
+  name: string | null
+  /** pending | sent | failed */
+  status: string
+  messageLogId: string | null
+  errorMessage: string | null
+  sentAt: string | null
+}
+
+/** صفحة نتائج مستلمي حملة مع بيانات التصفح */
+export interface CampaignRecipientsPage {
+  campaignId: string
+  recipients: CampaignRecipientResult[]
+  pagination: {
+    currentPage: number
+    perPage: number
+    total: number
+    lastPage: number
+  }
+}
+
 /** بيانات حالة رسالة واحدة */
 export interface MessageStatusResponseData {
   messageLogId: string
