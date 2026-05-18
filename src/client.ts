@@ -242,13 +242,16 @@ export class CubeConnect {
     const json = await response.json()
     const raw = json.data as Array<Record<string, unknown>>
     return raw.map((t) => ({
-      name:        t['name'] as string,
-      language:    t['language'] as string,
-      category:    t['category'] as TemplateData['category'],
-      status:      t['status'] as TemplateData['status'],
-      paramsCount: t['params_count'] as number,
-      body:        (t['body'] as string | null) ?? null,
-      header:      (t['header'] as string | null) ?? null,
+      name:                 t['name'] as string,
+      language:             t['language'] as string,
+      category:             t['category'] as TemplateData['category'],
+      status:               t['status'] as TemplateData['status'],
+      paramsCount:          t['params_count'] as number,
+      body:                 (t['body'] as string | null) ?? null,
+      header:               (t['header'] as string | null) ?? null,
+      headerType:           (t['header_type'] as TemplateData['headerType']) ?? 'none',
+      headerSampleMediaUrl: (t['header_sample_media_url'] as string | null) ?? null,
+      footer:               (t['footer'] as string | null) ?? null,
     }))
   }
 

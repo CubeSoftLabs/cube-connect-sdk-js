@@ -123,6 +123,11 @@ export interface ScheduledSendPayload extends SendPayload {
   timezone?: string
 }
 
+/** Header format for a template. `text` carries inline text; `image`/`video`/`document`
+ *  require a media parameter (link or id) to be sent in `components.header.parameters`
+ *  at send time. `none` means the template has no header. */
+export type TemplateHeaderType = 'none' | 'text' | 'image' | 'video' | 'document'
+
 /** بيانات قالب واحد من API */
 export interface TemplateData {
   name: string
@@ -131,7 +136,15 @@ export interface TemplateData {
   status: 'APPROVED' | 'PENDING' | 'REJECTED' | 'PAUSED' | 'DISABLED'
   paramsCount: number
   body: string | null
+  /** Header text — populated only when `headerType === 'text'`. */
   header: string | null
+  /** Always present. Tells the caller whether (and what kind of) media is required. */
+  headerType: TemplateHeaderType
+  /** Sample media URL Meta has on file (set at template creation). Populated only
+   *  when `headerType` is `image`/`video`/`document`. Callers may reuse this URL
+   *  on send, or pass their own media via the `header` component parameter. */
+  headerSampleMediaUrl: string | null
+  footer: string | null
 }
 
 /** نتيجة تسليم مستلم واحد في حملة */
