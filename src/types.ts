@@ -68,6 +68,14 @@ export interface SendOptions {
   timezone?: string
   /** Override the default whatsappAccountId set in the constructor */
   whatsappAccountId?: string
+  /**
+   * Opt-in 26-hour auto-retry for template messages that fail with Meta
+   * error 131049 (per-recipient marketing frequency cap). One retry per
+   * chain — the retry itself never auto-retries again. Useful for marketing
+   * campaigns where you'd rather have the message land 26h late than not
+   * at all. Recommended OFF for transactional/utility templates.
+   */
+  autoRetryOnFrequencyCap?: boolean
 }
 
 /** مستلم واحد في حملة جماعية */

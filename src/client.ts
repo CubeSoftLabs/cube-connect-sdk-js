@@ -69,15 +69,20 @@ export class CubeConnect {
       data.components = components
     }
 
-    const payload: SendPayload & { scheduled_at?: string; timezone?: string } = {
+    const payload: SendPayload & {
+      scheduled_at?: string
+      timezone?: string
+      auto_retry_on_frequency_cap?: boolean
+    } = {
       whatsapp_account_id: options?.whatsappAccountId ?? this.whatsappAccountId,
       phone,
       message_type: 'template',
       data,
     }
 
-    if (options?.scheduledAt) payload.scheduled_at = options.scheduledAt
-    if (options?.timezone)    payload.timezone      = options.timezone
+    if (options?.scheduledAt)                payload.scheduled_at                 = options.scheduledAt
+    if (options?.timezone)                   payload.timezone                     = options.timezone
+    if (options?.autoRetryOnFrequencyCap)    payload.auto_retry_on_frequency_cap  = true
 
     return this.send(payload)
   }
