@@ -11,6 +11,10 @@ export class CampaignResponse {
   readonly messageType: string
   readonly totalCount: number
   readonly sentCount: number
+  /** Subset of sentCount that Meta confirmed reached the recipient (via delivery webhook). */
+  readonly deliveredCount: number
+  /** Subset of sentCount that Meta confirmed the recipient opened (via read webhook). */
+  readonly readCount: number
   readonly failedCount: number
   readonly scheduledAt: string | null
   readonly createdAt: string
@@ -22,6 +26,8 @@ export class CampaignResponse {
     this.messageType = data.messageType
     this.totalCount = data.totalCount
     this.sentCount = data.sentCount
+    this.deliveredCount = data.deliveredCount
+    this.readCount = data.readCount
     this.failedCount = data.failedCount
     this.scheduledAt = data.scheduledAt
     this.createdAt = data.createdAt
@@ -32,15 +38,17 @@ export class CampaignResponse {
    */
   static fromResponse(raw: Record<string, unknown>): CampaignResponse {
     return new CampaignResponse({
-      campaignId:   String(raw['campaign_id'] ?? ''),
-      name:         raw['name'] != null ? String(raw['name']) : null,
-      status:       (raw['status'] as CampaignResponseData['status']) ?? 'pending',
-      messageType:  String(raw['message_type'] ?? ''),
-      totalCount:   Number(raw['total_count'] ?? 0),
-      sentCount:    Number(raw['sent_count'] ?? 0),
-      failedCount:  Number(raw['failed_count'] ?? 0),
-      scheduledAt:  raw['scheduled_at'] != null ? String(raw['scheduled_at']) : null,
-      createdAt:    String(raw['created_at'] ?? ''),
+      campaignId:     String(raw['campaign_id'] ?? ''),
+      name:           raw['name'] != null ? String(raw['name']) : null,
+      status:         (raw['status'] as CampaignResponseData['status']) ?? 'pending',
+      messageType:    String(raw['message_type'] ?? ''),
+      totalCount:     Number(raw['total_count'] ?? 0),
+      sentCount:      Number(raw['sent_count'] ?? 0),
+      deliveredCount: Number(raw['delivered_count'] ?? 0),
+      readCount:      Number(raw['read_count'] ?? 0),
+      failedCount:    Number(raw['failed_count'] ?? 0),
+      scheduledAt:    raw['scheduled_at'] != null ? String(raw['scheduled_at']) : null,
+      createdAt:      String(raw['created_at'] ?? ''),
     })
   }
 
@@ -62,15 +70,17 @@ export class CampaignResponse {
   /** تحويل إلى كائن بسيط */
   toObject(): CampaignResponseData {
     return {
-      campaignId:   this.campaignId,
-      name:         this.name,
-      status:       this.status,
-      messageType:  this.messageType,
-      totalCount:   this.totalCount,
-      sentCount:    this.sentCount,
-      failedCount:  this.failedCount,
-      scheduledAt:  this.scheduledAt,
-      createdAt:    this.createdAt,
+      campaignId:     this.campaignId,
+      name:           this.name,
+      status:         this.status,
+      messageType:    this.messageType,
+      totalCount:     this.totalCount,
+      sentCount:      this.sentCount,
+      deliveredCount: this.deliveredCount,
+      readCount:      this.readCount,
+      failedCount:    this.failedCount,
+      scheduledAt:    this.scheduledAt,
+      createdAt:      this.createdAt,
     }
   }
 }

@@ -120,6 +120,10 @@ export interface CampaignResponseData {
   messageType: string
   totalCount: number
   sentCount: number
+  /** Subset of sentCount that Meta confirmed reached the recipient (via delivery webhook). */
+  deliveredCount: number
+  /** Subset of sentCount that Meta confirmed the recipient opened (via read webhook). */
+  readCount: number
   failedCount: number
   scheduledAt: string | null
   createdAt: string
