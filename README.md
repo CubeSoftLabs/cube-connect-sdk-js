@@ -142,10 +142,55 @@ const campaign = await cube.createCampaign({
   campaignName: 'Order Notifications',
 })
 
-campaign.campaignId // "01JX..."
-campaign.status     // "pending"
-campaign.totalCount // 2
+campaign.campaignId     // "01JX..."
+campaign.status         // "preparing" — the list is still being expanded
+campaign.requestedCount // 2 — what you submitted, final immediately
+campaign.totalCount     // 0 until preparation finishes
 ```
+
+The API accepts the campaign and returns straight away, so the response time is
+the same for 100 recipients or 50,000. Recipient rows are written in the
+background, which is why `totalCount` is `0` at first — poll `getCampaign()` or
+subscribe to the `campaign.created` webhook for the final, opt-out-filtered count.
+
+```typescript
+campaign.isPreparing()  // true while the list is expanding
+campaign.isFailed()     // preparation gave up — see campaign.failureReason
+```
+
+#### Idempotency — retrying safely
+
+Every create carries an `Idempotency-Key`. Leave it unset and the SDK derives one
+from the payload, so **re-issuing an identical call returns the original campaign
+instead of creating a second one**:
+
+```typescript
+import { TimeoutError } from '@cubesoftware/cube-connect-sdk-js'
+
+// A timeout does not mean the campaign was not created. Retry the same call —
+// the second attempt returns the first campaign rather than double-sending.
+try {
+  campaign = await cube.createCampaign(payload)
+} catch (error) {
+  if (error instanceof TimeoutError) {
+    campaign = await cube.createCampaign(payload)   // safe: same derived key
+  } else {
+    throw error
+  }
+}
+```
+
+Set your own key to control the grouping — including when you deliberately want
+to send the very same campaign twice:
+
+```typescript
+await cube.createCampaign({ ...payload, idempotencyKey: 'national-day-batch-1' })
+```
+
+`TimeoutError` (`REQUEST_TIMEOUT`) is raised separately from `CubeConnectError`
+(`CONNECTION_FAILED`) precisely because the two call for different responses: a
+timeout may have succeeded on the server and should be retried with the same key;
+a connection failure never reached it.
 
 Scheduled delivery:
 
@@ -219,6 +264,26 @@ msg.isDelivered() // true if status is "delivered"
 msg.isRead()      // true if status is "read"
 msg.isFailed()    // true if status is "failed"
 msg.isScheduled() // true if status is "scheduled"
+```
+
+### Opt-out List
+
+Manage numbers that unsubscribed or were blocked. Opt-outs are enforced on every send — messaging an opted-out recipient throws a `ValidationError` with code `RECIPIENT_OPTED_OUT`. Scope `'marketing'` (default) suppresses promotional only; `'all'` is a full block.
+
+```typescript
+// Add / remove
+await cube.addOptOut('+966501234567')          // marketing opt-out
+await cube.addOptOut('+966501234567', 'all')   // full block
+await cube.removeOptOut('+966501234567')        // re-subscribe
+
+// Check one number
+const status = await cube.getOptOut('+966501234567')
+status.optedOut // true | false
+status.scope    // 'marketing' | 'all' | null
+
+// List (filter by scope / phone)
+const page = await cube.listOptOuts({ scope: 'marketing', perPage: 50 })
+page.optOuts    // OptOutRecord[]
 ```
 
 ### Health Check

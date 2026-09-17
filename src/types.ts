@@ -110,15 +110,27 @@ export interface CreateCampaignPayload {
   timezone?: string
   /** Override the default whatsappAccountId set in the constructor */
   whatsappAccountId?: string
+  /**
+   * مفتاح idempotency لتجميع إعادات المحاولة.
+   * Leave unset to derive a stable key from the payload, so retrying an
+   * identical call after a timeout returns the original campaign instead of
+   * creating a second one. Set it yourself to send the same campaign twice.
+   */
+  idempotencyKey?: string
 }
 
 /** بيانات استجابة الحملة من API */
 export interface CampaignResponseData {
   campaignId: string
   name: string | null
-  status: 'pending' | 'processing' | 'completed' | 'cancelled' | 'failed' | 'scheduled'
+  status: 'preparing' | 'pending' | 'processing' | 'completed' | 'cancelled' | 'failed' | 'scheduled'
   messageType: string
+  /** Recipients you submitted. Final from the very first response. */
+  requestedCount: number
+  /** Deliverable recipients after opt-out filtering. 0 while status is `preparing`. */
   totalCount: number
+  /** Why preparation failed, when status is `failed`. */
+  failureReason: string | null
   sentCount: number
   /** Subset of sentCount that Meta confirmed reached the recipient (via delivery webhook). */
   deliveredCount: number
@@ -174,6 +186,37 @@ export interface CampaignRecipientResult {
 export interface CampaignRecipientsPage {
   campaignId: string
   recipients: CampaignRecipientResult[]
+  pagination: {
+    currentPage: number
+    perPage: number
+    total: number
+    lastPage: number
+  }
+}
+
+/** Opt-out scope: 'marketing' suppresses promotional only; 'all' is a full block. */
+export type OptOutScope = 'marketing' | 'all'
+
+/** A single opt-out (unsubscribe) record. */
+export interface OptOutRecord {
+  phone: string
+  scope: OptOutScope
+  source: string
+  optedOutAt: string | null
+}
+
+/** Result of checking a single number's opt-out status. */
+export interface OptOutStatus {
+  phone: string
+  optedOut: boolean
+  scope: OptOutScope | null
+  source: string | null
+  optedOutAt: string | null
+}
+
+/** Paginated opt-out list. */
+export interface OptOutsPage {
+  optOuts: OptOutRecord[]
   pagination: {
     currentPage: number
     perPage: number

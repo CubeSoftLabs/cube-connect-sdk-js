@@ -9,6 +9,7 @@ export {
   ValidationError,
   NotFoundError,
   RateLimitError,
+  TimeoutError,
 } from './errors/index.js'
 export type {
   CubeConnectOptions,
@@ -24,6 +25,10 @@ export type {
   CampaignRecipientResult,
   CampaignRecipientsPage,
   TemplateData,
+  OptOutScope,
+  OptOutRecord,
+  OptOutStatus,
+  OptOutsPage,
 } from './types.js'
 export type {
   WebhookEventType,

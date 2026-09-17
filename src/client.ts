@@ -8,6 +8,10 @@ import type {
   TemplateComponent,
   TemplateData,
   ApiErrorResponse,
+  OptOutScope,
+  OptOutRecord,
+  OptOutStatus,
+  OptOutsPage,
 } from './types.js'
 import { MessageResponse } from './message-response.js'
 import { MessageStatusResponse } from './message-status-response.js'
@@ -18,6 +22,7 @@ import {
   ValidationError,
   NotFoundError,
   RateLimitError,
+  TimeoutError,
 } from './errors/index.js'
 
 const DEFAULT_BASE_URL = 'https://cubeconnect.io'
@@ -88,6 +93,20 @@ export class CubeConnect {
   }
 
   /** Create a bulk campaign. Pass whatsappAccountId inside payload to override the default. */
+  /**
+   * أنشئ حملة جماعية.
+   *
+   * The API answers as soon as it accepts the list, before the recipient rows
+   * exist, so the campaign can come back with status `preparing` and totalCount
+   * 0. Use `requestedCount` for what you submitted, and `getCampaign()` (or the
+   * campaign.created webhook) for the final tally.
+   *
+   * Idempotency: every create carries an Idempotency-Key. Leave
+   * `payload.idempotencyKey` unset and one is derived from the payload, so
+   * re-issuing an identical call after a timeout returns the original campaign
+   * instead of creating a second one. Set it yourself to control the grouping —
+   * including when you deliberately want to send the same campaign twice.
+   */
   async createCampaign(payload: CreateCampaignPayload): Promise<CampaignResponse> {
     const body = {
       whatsapp_account_id: payload.whatsappAccountId ?? this.whatsappAccountId,
@@ -102,16 +121,18 @@ export class CubeConnect {
       timezone:            payload.timezone,
     }
 
+    const idempotencyKey = payload.idempotencyKey ?? await this.deriveIdempotencyKey(body)
+
     let response: Response
 
     try {
       response = await this.fetchWithTimeout(`${this.baseUrl}/api/v1/campaigns`, {
         method: 'POST',
-        headers: this.buildHeaders(),
+        headers: { ...this.buildHeaders(), 'Idempotency-Key': idempotencyKey },
         body: JSON.stringify(body),
       })
     } catch (error) {
-      throw CubeConnectError.connectionFailed(error instanceof Error ? error : undefined)
+      throw CubeConnectError.fromTransportFailure(error)
     }
 
     await this.handleErrors(response)
@@ -130,7 +151,7 @@ export class CubeConnect {
         { method: 'GET', headers: this.buildHeaders() },
       )
     } catch (error) {
-      throw CubeConnectError.connectionFailed(error instanceof Error ? error : undefined)
+      throw CubeConnectError.fromTransportFailure(error)
     }
 
     await this.handleErrors(response)
@@ -159,7 +180,7 @@ export class CubeConnect {
         { method: 'GET', headers: this.buildHeaders() },
       )
     } catch (error) {
-      throw CubeConnectError.connectionFailed(error instanceof Error ? error : undefined)
+      throw CubeConnectError.fromTransportFailure(error)
     }
 
     await this.handleErrors(response)
@@ -198,7 +219,7 @@ export class CubeConnect {
         { method: 'POST', headers: this.buildHeaders(), body: JSON.stringify({}) },
       )
     } catch (error) {
-      throw CubeConnectError.connectionFailed(error instanceof Error ? error : undefined)
+      throw CubeConnectError.fromTransportFailure(error)
     }
 
     await this.handleErrors(response)
@@ -217,7 +238,7 @@ export class CubeConnect {
         { method: 'GET', headers: this.buildHeaders() },
       )
     } catch (error) {
-      throw CubeConnectError.connectionFailed(error instanceof Error ? error : undefined)
+      throw CubeConnectError.fromTransportFailure(error)
     }
 
     await this.handleErrors(response)
@@ -239,7 +260,7 @@ export class CubeConnect {
         { method: 'GET', headers: this.buildHeaders() },
       )
     } catch (error) {
-      throw CubeConnectError.connectionFailed(error instanceof Error ? error : undefined)
+      throw CubeConnectError.fromTransportFailure(error)
     }
 
     await this.handleErrors(response)
@@ -267,7 +288,7 @@ export class CubeConnect {
     try {
       response = await this.fetchWithTimeout(`${this.baseUrl}/api/health`, { method: 'GET' })
     } catch (error) {
-      throw CubeConnectError.connectionFailed(error instanceof Error ? error : undefined)
+      throw CubeConnectError.fromTransportFailure(error)
     }
 
     if (!response.ok) {
@@ -278,6 +299,121 @@ export class CubeConnect {
 
     const body = await response.json()
     return body.data as HealthResponse
+  }
+
+  /** Add a number to the opt-out (unsubscribe) list. Scope defaults to 'marketing'. */
+  async addOptOut(phone: string, scope: OptOutScope = 'marketing'): Promise<OptOutRecord> {
+    let response: Response
+
+    try {
+      response = await this.fetchWithTimeout(`${this.baseUrl}/api/v1/opt-outs`, {
+        method: 'POST',
+        headers: this.buildHeaders(),
+        body: JSON.stringify({ phone, scope }),
+      })
+    } catch (error) {
+      throw CubeConnectError.fromTransportFailure(error)
+    }
+
+    await this.handleErrors(response)
+
+    const json = await response.json()
+    const d = json.data as Record<string, unknown>
+    return {
+      phone:      d['phone'] as string,
+      scope:      d['scope'] as OptOutScope,
+      source:     (d['source'] as string | undefined) ?? 'api',
+      optedOutAt: (d['opted_out_at'] as string | null) ?? null,
+    }
+  }
+
+  /** Remove a number from the opt-out list (re-subscribe). */
+  async removeOptOut(phone: string): Promise<{ phone: string; removed: boolean }> {
+    let response: Response
+
+    try {
+      response = await this.fetchWithTimeout(
+        `${this.baseUrl}/api/v1/opt-outs/${encodeURIComponent(phone)}`,
+        { method: 'DELETE', headers: this.buildHeaders() },
+      )
+    } catch (error) {
+      throw CubeConnectError.fromTransportFailure(error)
+    }
+
+    await this.handleErrors(response)
+
+    const json = await response.json()
+    const d = json.data as Record<string, unknown>
+    return { phone: d['phone'] as string, removed: d['removed'] === true }
+  }
+
+  /** Check whether a single number is opted out. */
+  async getOptOut(phone: string): Promise<OptOutStatus> {
+    let response: Response
+
+    try {
+      response = await this.fetchWithTimeout(
+        `${this.baseUrl}/api/v1/opt-outs/${encodeURIComponent(phone)}`,
+        { method: 'GET', headers: this.buildHeaders() },
+      )
+    } catch (error) {
+      throw CubeConnectError.fromTransportFailure(error)
+    }
+
+    await this.handleErrors(response)
+
+    const json = await response.json()
+    const d = json.data as Record<string, unknown>
+    return {
+      phone:      d['phone'] as string,
+      optedOut:   d['opted_out'] === true,
+      scope:      (d['scope'] as OptOutScope | null) ?? null,
+      source:     (d['source'] as string | null) ?? null,
+      optedOutAt: (d['opted_out_at'] as string | null) ?? null,
+    }
+  }
+
+  /** List opted-out numbers, optionally filtered by scope or phone substring. */
+  async listOptOuts(options?: { scope?: OptOutScope; phone?: string; perPage?: number }): Promise<OptOutsPage> {
+    const params = new URLSearchParams()
+    if (options?.scope)   params.set('scope',    options.scope)
+    if (options?.phone)   params.set('phone',    options.phone)
+    if (options?.perPage) params.set('per_page', String(options.perPage))
+
+    const qs = params.size > 0 ? `?${params}` : ''
+
+    let response: Response
+
+    try {
+      response = await this.fetchWithTimeout(
+        `${this.baseUrl}/api/v1/opt-outs${qs}`,
+        { method: 'GET', headers: this.buildHeaders() },
+      )
+    } catch (error) {
+      throw CubeConnectError.fromTransportFailure(error)
+    }
+
+    await this.handleErrors(response)
+
+    const json = await response.json()
+    const data = json.data as Record<string, unknown>
+    const rawList = (data['opt_outs'] as Array<Record<string, unknown>>) ?? []
+    const rawPagination = (data['pagination'] as Record<string, number>) ?? {}
+
+    return {
+      optOuts: rawList.map((o) => ({
+        phone:      o['phone'] as string,
+        scope:      o['scope'] as OptOutScope,
+        source:     (o['source'] as string) ?? 'api',
+        optedOutAt: (o['opted_out_at'] as string | null) ?? null,
+      })),
+      pagination: {
+        currentPage: rawPagination['current_page'] ?? 1,
+        perPage:     rawPagination['per_page'] ?? 50,
+        total:       rawPagination['total'] ?? 0,
+        lastPage:    rawPagination['last_page'] ?? 1,
+      },
+    }
   }
 
   // ── Private ──────────────────────────────────────────────────────────────
@@ -292,7 +428,7 @@ export class CubeConnect {
         body: JSON.stringify(payload),
       })
     } catch (error) {
-      throw CubeConnectError.connectionFailed(error instanceof Error ? error : undefined)
+      throw CubeConnectError.fromTransportFailure(error)
     }
 
     await this.handleErrors(response)
@@ -315,6 +451,39 @@ export class CubeConnect {
     return headers
   }
 
+  /**
+   * اشتق مفتاح idempotency ثابتاً من الحملة نفسها.
+   *
+   * Same campaign, same key — so a retry after a timeout is recognised as the
+   * same request. Uses Web Crypto (Node 18+ and every modern browser) and falls
+   * back to a stable string hash where it is unavailable.
+   */
+  private async deriveIdempotencyKey(body: unknown): Promise<string> {
+    const json = JSON.stringify(body)
+    const subtle = globalThis.crypto?.subtle
+
+    if (subtle) {
+      const digest = await subtle.digest('SHA-256', new TextEncoder().encode(json))
+      const hex = Array.from(new Uint8Array(digest))
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('')
+
+      return `sdk-${hex}`
+    }
+
+    // FNV-1a over two offsets — weaker than SHA-256 but stable and dependency-free.
+    const fnv = (seed: number): string => {
+      let h = seed
+      for (let i = 0; i < json.length; i++) {
+        h ^= json.charCodeAt(i)
+        h = Math.imul(h, 0x01000193) >>> 0
+      }
+      return h.toString(16).padStart(8, '0')
+    }
+
+    return `sdk-${fnv(0x811c9dc5)}${fnv(0x7fffffff)}-${json.length.toString(16)}`
+  }
+
   private async fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
     const controller = new AbortController()
     const timeoutId  = setTimeout(() => controller.abort(), this.timeout)
@@ -323,7 +492,7 @@ export class CubeConnect {
       return await fetch(url, { ...init, signal: controller.signal })
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
-        throw new CubeConnectError(`Request timed out after ${this.timeout}ms.`, 0, 'TIMEOUT')
+        throw new TimeoutError(this.timeout, error)
       }
       throw error
     } finally {

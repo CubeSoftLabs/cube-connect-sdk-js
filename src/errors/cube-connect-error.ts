@@ -24,6 +24,19 @@ export class CubeConnectError extends Error {
     )
   }
 
+  /**
+   * صنّف فشل النقل: مهلة منتهية أم تعذّر الاتصال.
+   *
+   * A timeout raised by fetchWithTimeout is already a CubeConnectError and is
+   * passed through untouched — the old catch blocks re-wrapped it as
+   * "Unable to connect", which read like an outage and invited an unsafe retry.
+   */
+  static fromTransportFailure(error: unknown): CubeConnectError {
+    if (error instanceof CubeConnectError) return error
+
+    return CubeConnectError.connectionFailed(error instanceof Error ? error : undefined)
+  }
+
   /** فشل الاتصال بالخادم */
   static connectionFailed(cause?: Error): CubeConnectError {
     const err = new CubeConnectError(

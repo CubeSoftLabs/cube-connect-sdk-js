@@ -9,7 +9,12 @@ export class CampaignResponse {
   readonly name: string | null
   readonly status: CampaignResponseData['status']
   readonly messageType: string
+  /** Recipients you submitted. Final from the very first response. */
+  readonly requestedCount: number
+  /** Deliverable recipients after opt-out filtering. 0 while status is `preparing`. */
   readonly totalCount: number
+  /** Why preparation failed, when status is `failed`. */
+  readonly failureReason: string | null
   readonly sentCount: number
   /** Subset of sentCount that Meta confirmed reached the recipient (via delivery webhook). */
   readonly deliveredCount: number
@@ -24,7 +29,9 @@ export class CampaignResponse {
     this.name = data.name
     this.status = data.status
     this.messageType = data.messageType
+    this.requestedCount = data.requestedCount
     this.totalCount = data.totalCount
+    this.failureReason = data.failureReason
     this.sentCount = data.sentCount
     this.deliveredCount = data.deliveredCount
     this.readCount = data.readCount
@@ -42,7 +49,9 @@ export class CampaignResponse {
       name:           raw['name'] != null ? String(raw['name']) : null,
       status:         (raw['status'] as CampaignResponseData['status']) ?? 'pending',
       messageType:    String(raw['message_type'] ?? ''),
+      requestedCount: Number(raw['requested_count'] ?? raw['total_count'] ?? 0),
       totalCount:     Number(raw['total_count'] ?? 0),
+      failureReason:  raw['failure_reason'] != null ? String(raw['failure_reason']) : null,
       sentCount:      Number(raw['sent_count'] ?? 0),
       deliveredCount: Number(raw['delivered_count'] ?? 0),
       readCount:      Number(raw['read_count'] ?? 0),
@@ -50,6 +59,20 @@ export class CampaignResponse {
       scheduledAt:    raw['scheduled_at'] != null ? String(raw['scheduled_at']) : null,
       createdAt:      String(raw['created_at'] ?? ''),
     })
+  }
+
+  /**
+   * هل ما زالت الحملة قيد تجهيز قائمة المستلمين؟
+   * totalCount is not final yet — poll getCampaign() or wait for the
+   * campaign.created webhook.
+   */
+  isPreparing(): boolean {
+    return this.status === 'preparing'
+  }
+
+  /** فشل التجهيز — لن تُرسل الحملة. See failureReason. */
+  isFailed(): boolean {
+    return this.status === 'failed'
   }
 
   /** هل الحملة مجدولة (لم تبدأ بعد)؟ */
@@ -74,7 +97,9 @@ export class CampaignResponse {
       name:           this.name,
       status:         this.status,
       messageType:    this.messageType,
+      requestedCount: this.requestedCount,
       totalCount:     this.totalCount,
+      failureReason:  this.failureReason,
       sentCount:      this.sentCount,
       deliveredCount: this.deliveredCount,
       readCount:      this.readCount,
