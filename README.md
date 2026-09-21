@@ -158,6 +158,37 @@ campaign.isPreparing()  // true while the list is expanding
 campaign.isFailed()     // preparation gave up — see campaign.failureReason
 ```
 
+#### Splitting a large campaign
+
+A list larger than the number's remaining daily allowance normally throws
+`MESSAGING_TIER_LIMIT_EXCEEDED`. Set `splitAcrossDays` and it is divided into
+parts instead — each a campaign in its own right, named `Your name (1/3)` and so on.
+
+```typescript
+const campaign = await cube.createCampaign({
+  messageType: 'template',
+  templateName: 'national_day_offer',
+  recipients: allContacts,      // 2,500 on a 1,000/day number
+  campaignName: 'National Day',
+  splitAcrossDays: true,
+})
+
+campaign.isSplit()    // true
+campaign.partsTotal   // 3
+campaign.campaignId   // the first part — the one going out now
+
+for (const part of campaign.parts) {
+  console.log(`${part.name}: ${part.requestedCount}, ${part.scheduledAt ?? 'sending now'}`)
+}
+```
+
+The dates are an opening plan, not a promise: each part rechecks the real
+remaining capacity when it runs and is pulled forward as soon as there is room.
+
+> **Do not split twice.** If your own code already splits on
+> `MESSAGING_TIER_LIMIT_EXCEEDED`, either keep doing that **or** set
+> `splitAcrossDays` — not both, or each of your batches gets divided again.
+
 #### Idempotency — retrying safely
 
 Every create carries an `Idempotency-Key`. Leave it unset and the SDK derives one

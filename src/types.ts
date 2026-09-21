@@ -111,12 +111,34 @@ export interface CreateCampaignPayload {
   /** Override the default whatsappAccountId set in the constructor */
   whatsappAccountId?: string
   /**
+   * قسّم القائمة على أيام بدل رفضها عند تجاوز الحد اليومي.
+   *
+   * With this off (the default) an oversized list returns
+   * MESSAGING_TIER_LIMIT_EXCEEDED, unchanged — so code that already splits on
+   * that error does not end up splitting twice. With it on, the campaign comes
+   * back divided into parts (see CampaignResponse.parts).
+   */
+  splitAcrossDays?: boolean
+  /**
    * مفتاح idempotency لتجميع إعادات المحاولة.
    * Leave unset to derive a stable key from the payload, so retrying an
    * identical call after a timeout returns the original campaign instead of
    * creating a second one. Set it yourself to send the same campaign twice.
    */
   idempotencyKey?: string
+}
+
+/** جزء من حملة قُسّمت على أيام لتناسب الحد اليومي للرقم */
+export interface CampaignPartData {
+  campaignId: string
+  name: string | null
+  /** 1-based position in the send order. */
+  partNumber: number
+  status: string
+  /** Recipients allotted to this part. */
+  requestedCount: number
+  /** ISO 8601; null means it starts immediately. */
+  scheduledAt: string | null
 }
 
 /** بيانات استجابة الحملة من API */
@@ -139,6 +161,12 @@ export interface CampaignResponseData {
   failedCount: number
   scheduledAt: string | null
   createdAt: string
+  /** Set when the campaign was split across days. */
+  campaignGroupId: string | null
+  /** How many parts the split produced; null when not split. */
+  partsTotal: number | null
+  /** Every part, in send order. Empty when not split. */
+  parts: CampaignPartData[]
 }
 
 /** حمولة إرسال الرسالة الداخلية مع دعم الجدولة */

@@ -14,6 +14,7 @@ export {
 export type {
   CubeConnectOptions,
   HealthResponse,
+  CampaignPartData,
   MessageResponseData,
   MessageStatusResponseData,
   TemplateComponent,

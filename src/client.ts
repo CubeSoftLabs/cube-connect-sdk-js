@@ -101,6 +101,11 @@ export class CubeConnect {
    * 0. Use `requestedCount` for what you submitted, and `getCampaign()` (or the
    * campaign.created webhook) for the final tally.
    *
+   * Set `splitAcrossDays` for a list larger than the number's remaining daily
+   * allowance: instead of a MESSAGING_TIER_LIMIT_EXCEEDED error the campaign
+   * comes back divided into parts (see `response.parts`). Left off, the error
+   * behaviour is unchanged, so code that already splits on it is not split twice.
+   *
    * Idempotency: every create carries an Idempotency-Key. Leave
    * `payload.idempotencyKey` unset and one is derived from the payload, so
    * re-issuing an identical call after a timeout returns the original campaign
@@ -119,6 +124,7 @@ export class CubeConnect {
       campaign_name:       payload.campaignName,
       scheduled_at:        payload.scheduledAt,
       timezone:            payload.timezone,
+      split_across_days:   payload.splitAcrossDays,
     }
 
     const idempotencyKey = payload.idempotencyKey ?? await this.deriveIdempotencyKey(body)
